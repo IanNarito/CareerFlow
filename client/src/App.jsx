@@ -3,6 +3,7 @@ import Home from './pages/Home'; // Assuming you saved the first wireframe here
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import JobList from './pages/jobs/JobList';
+import Onboarding from './pages/auth/Onboarding';
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/jobs" element={<JobList />} />
+          <Route path="/onboarding" element={<Onboarding />} />
         </Routes>
       </div>
     </Router>
