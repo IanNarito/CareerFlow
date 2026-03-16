@@ -1,22 +1,59 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, ArrowRight, LayoutDashboard, Sparkles, ArrowLeft } from 'lucide-react';
 
 const Register = () => {
+  const navigate = useNavigate(); // For redirecting after successful CRUD action
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
     password: '',
     confirmPassword: '',
   });
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Registration attempt:', formData);
+    
+    // Web Security: Basic client-side validation
+    if (formData.password !== formData.confirmPassword) {
+      alert("Passwords do not match!");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Connecting to your Node.js backend on Port 5000
+      const response = await fetch('http://localhost:5000/api/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      fullName: formData.fullName, // MUST match the backend deconstruction
+      email: formData.email,
+      password: formData.password,
+      role: 'job_seeker'
+    }),
+  });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert("Registration successful!");
+        navigate('/login'); // Redirect to login page
+      } else {
+        alert(data.error || "Registration failed");
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert("Could not connect to the server. Ensure your Node.js backend is running.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -51,7 +88,7 @@ const Register = () => {
             Build a resume that stands out from the crowd.
           </h2>
           <p className="text-slate-300 text-sm leading-relaxed mb-8">
-            Join thousands of professionals who have transformed their job search. Create an account to unlock our AI-powered resume builder and personalized job matches.
+            Join thousands of professionals who have transformed their job search. Create an account to unlock our AI-powered resume builder and personalized job matches[cite: 6, 45, 70].
           </p>
           
           <div className="flex -space-x-4">
@@ -64,7 +101,7 @@ const Register = () => {
         
         {/* Footer info */}
         <div className="relative z-10 text-slate-400 text-xs">
-          © 2025 CareerFlow Technologies. All rights reserved.
+          © 2026 CareerFlow Technologies. All rights reserved.
         </div>
       </div>
 
@@ -172,9 +209,10 @@ const Register = () => {
             <div className="pt-2">
               <button
                 type="submit"
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors focus:ring-4 focus:ring-blue-100 shadow-sm"
+                disabled={loading}
+                className={`w-full flex items-center justify-center gap-2 py-3 px-4 ${loading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'} text-white font-bold rounded-lg transition-colors focus:ring-4 focus:ring-blue-100 shadow-sm`}
               >
-                Create Account <ArrowRight size={18} />
+                {loading ? 'Processing...' : 'Create Account'} <ArrowRight size={18} />
               </button>
             </div>
             

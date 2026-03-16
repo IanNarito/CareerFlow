@@ -1,20 +1,56 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom'; // Added useNavigate
 import { Mail, Lock, ArrowRight, LayoutDashboard, CheckCircle2, ArrowLeft } from 'lucide-react';
 
 const Login = () => {
+  const navigate = useNavigate(); // Hook to redirect user after successful login
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   });
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Login attempt:', formData);
+    setLoading(true);
+
+    try {
+      // 1. Web Security & CRUD: Verify credentials via your Node.js API
+      const response = await fetch('http://localhost:5000/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // 2. Information Management: Store user session (simplified)
+        localStorage.setItem('user', JSON.stringify(data));
+        
+        alert(`Welcome back, ${data.username}!`);
+
+        // 3. Role-Based Redirection: HR Side vs. Job Seeker
+        if (data.role === 'hr' || data.role === 'admin') {
+          navigate('/hr-dashboard'); // Or wherever your HR side lives
+        } else {
+          navigate('/'); // Redirect to the main Dashboard/Home
+        }
+      } else {
+        alert(data.error || "Login failed. Please check your credentials.");
+      }
+    } catch (error) {
+      console.error('Login Error:', error);
+      alert("Could not connect to the server. Is your Node.js backend running?");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -63,7 +99,7 @@ const Login = () => {
         
         {/* Footer info */}
         <div className="relative z-10 text-blue-200 text-xs">
-          © 2025 CareerFlow Technologies. All rights reserved.
+          © 2026 CareerFlow Technologies. All rights reserved.
         </div>
       </div>
 
@@ -133,9 +169,10 @@ const Login = () => {
 
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors focus:ring-4 focus:ring-blue-100 shadow-sm"
+              disabled={loading}
+              className={`w-full flex items-center justify-center gap-2 py-3 px-4 ${loading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'} text-white font-bold rounded-lg transition-colors focus:ring-4 focus:ring-blue-100 shadow-sm`}
             >
-              Sign in <ArrowRight size={18} />
+              {loading ? 'Signing in...' : 'Sign in'} <ArrowRight size={18} />
             </button>
           </form>
 
