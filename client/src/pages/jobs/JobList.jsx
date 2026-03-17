@@ -2,24 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   LayoutDashboard, Search, MapPin, Briefcase, DollarSign, 
-  Clock, Bookmark, Filter, CheckCircle2, Mic, Volume2, 
+  Bookmark, Filter, CheckCircle2, Mic, Volume2, 
   HardHat, Truck, Wrench, Zap, Building2, ChevronDown, ShieldCheck
 } from 'lucide-react';
 
 // --- DATA: PHILIPPINE BLUE-COLLAR ROLES ---
 const JOB_LISTINGS = [
   {
-    id: 1,
+    id: 1, // ID used for routing
     title: "Heavy Equipment Operator",
     company: "BuildRight Construction Corp.",
     logo: "https://images.unsplash.com/photo-1504307651254-35680f356f90?w=128&h=128&fit=crop&q=80",
     location: "Quezon City, Metro Manila",
     salary: "₱800 - ₱1,200 / day",
     type: "Project-based",
-    postedAt: "Just now",
     urgent: true,
     verified: true,
-    match: "98%",
     tags: ["NC II Certificate", "Backhoe / Crane"]
   },
   {
@@ -30,10 +28,8 @@ const JOB_LISTINGS = [
     location: "Pasig City & Rizal Area",
     salary: "₱650 - ₱850 / day",
     type: "Full-time",
-    postedAt: "2 hours ago",
     urgent: false,
     verified: true,
-    match: "92%",
     tags: ["Professional License", "6-Wheeler"]
   },
   {
@@ -44,10 +40,8 @@ const JOB_LISTINGS = [
     location: "Santa Rosa, Laguna",
     salary: "₱750 - ₱900 / day",
     type: "Full-time",
-    postedAt: "5 hours ago",
     urgent: true,
     verified: true,
-    match: "88%",
     tags: ["Electrical Troubleshooting", "Shift Work"]
   },
   {
@@ -58,10 +52,8 @@ const JOB_LISTINGS = [
     location: "Carmona, Cavite",
     salary: "₱520 - ₱600 / day",
     type: "Contract",
-    postedAt: "1 day ago",
     urgent: false,
     verified: false,
-    match: "75%",
     tags: ["Assembly Line", "No Experience Needed"]
   }
 ];
@@ -92,8 +84,8 @@ const JobList = () => {
             <div className={`hidden lg:flex gap-8 text-sm font-semibold ${scrolled ? 'text-slate-600' : 'text-slate-300'}`}>
               <Link to="/jobs" className={`${scrolled ? 'text-blue-600' : 'text-white'} flex items-center gap-2`}>Job Listings</Link>
               <Link to="/dashboard" className="hover:text-blue-500 transition-colors">My Applications</Link>
-              <Link to="/dashboard/interviews" className="hover:text-blue-500 transition-colors">Interviews</Link>
-              <Link to="/resume" className="hover:text-blue-500 transition-colors">Resume Builder</Link>
+              <Link to="/dashboard" className="hover:text-blue-500 transition-colors">Interviews</Link>
+              <Link to="/dashboard" className="hover:text-blue-500 transition-colors">Resume Builder</Link>
             </div>
           </div>
 
@@ -218,7 +210,7 @@ const JobList = () => {
               <p className="text-slate-400 text-sm mb-8 leading-relaxed relative z-10">
                 Activate the Voice Assistant to answer interview questions and build your profile using only your microphone.
               </p>
-              <Link to="/resume" className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-colors shadow-md relative z-10">
+              <Link to="/voice-builder" className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-colors shadow-md relative z-10">
                 Start Voice Setup
               </Link>
             </div>
@@ -259,58 +251,66 @@ const FilterToggle = ({ icon, label, count, checked = false }) => (
 );
 
 const JobCard = ({ job }) => (
-  <div className="bg-white border border-slate-200 rounded-2xl p-6 hover:border-blue-400 hover:shadow-lg transition-all relative group flex flex-col sm:flex-row gap-5 w-full">
+  <div className="bg-white border border-slate-200 rounded-xl p-5 hover:border-blue-400 hover:shadow-md transition-all relative group flex flex-col sm:flex-row gap-5 w-full">
     
-    <div className="w-20 h-20 rounded-xl border border-slate-100 overflow-hidden bg-slate-50 flex-shrink-0">
-      <img src={job.logo} alt={job.company} className="w-full h-full object-cover" />
-    </div>
+    {/* CLICKABLE LOGO */}
+    <Link to={`/jobs/${job.id}`} className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl border border-slate-100 overflow-hidden bg-slate-50 flex-shrink-0 block">
+      <img src={job.logo} alt={job.company} className="w-full h-full object-cover hover:scale-105 transition-transform" />
+    </Link>
     
     <div className="flex-1 min-w-0 w-full">
       <div className="flex items-start justify-between gap-4 mb-2">
         <div>
-          <h3 className="text-xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors leading-tight mb-1">
-            {job.title}
-          </h3>
+          {/* CLICKABLE TITLE */}
+          <Link to={`/jobs/${job.id}`}>
+            <h3 className="text-lg sm:text-xl font-bold text-slate-900 hover:text-blue-600 transition-colors leading-tight mb-1">
+              {job.title}
+            </h3>
+          </Link>
           <div className="flex items-center gap-2">
-            <Building2 size={16} className="text-slate-400" />
-            <p className="text-base font-bold text-slate-600">{job.company}</p>
-            {job.verified && <ShieldCheck size={16} className="text-green-600" title="Verified Employer" />}
+            <Building2 size={14} className="text-slate-400" />
+            <p className="text-sm sm:text-base font-bold text-slate-600">{job.company}</p>
+            {job.verified && <ShieldCheck size={14} className="text-green-600" title="Verified Employer" />}
           </div>
         </div>
         
         <div className="flex gap-2 flex-shrink-0">
-          <button className="p-2.5 bg-slate-50 text-blue-600 rounded-lg hover:bg-blue-100 border border-slate-200 transition-colors" title="Read Job Details">
-            <Volume2 size={20} />
+          <button className="p-2 sm:p-2.5 bg-slate-50 text-blue-600 rounded-lg hover:bg-blue-100 border border-slate-200 transition-colors" title="Read Job Details">
+            <Volume2 size={18} />
           </button>
-          <button className="p-2.5 text-slate-400 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors">
-            <Bookmark size={20} />
+          <button className="p-2 sm:p-2.5 text-slate-400 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors">
+            <Bookmark size={18} />
           </button>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-4 text-sm font-medium text-slate-600">
-        <div className="flex items-center gap-2"><MapPin size={18} className="text-slate-400"/> {job.location}</div>
-        <div className="flex items-center gap-2"><DollarSign size={18} className="text-green-600"/> <span className="font-bold text-slate-800">{job.salary}</span></div>
-        <div className="flex items-center gap-2"><Briefcase size={18} className="text-slate-400"/> {job.type}</div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3 sm:mt-4 text-sm font-medium text-slate-600">
+        <div className="flex items-center gap-1.5"><MapPin size={16} className="text-slate-400"/> {job.location}</div>
+        <div className="flex items-center gap-1.5"><DollarSign size={16} className="text-green-600"/> <span className="font-bold text-slate-800">{job.salary}</span></div>
+        <div className="flex items-center gap-1.5"><Briefcase size={16} className="text-slate-400"/> {job.type}</div>
       </div>
 
-      <div className="mt-5 pt-5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
+      <div className="mt-4 sm:mt-5 pt-4 sm:pt-5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
         <div className="flex flex-wrap items-center gap-2">
           {job.urgent && (
-            <span className="px-3 py-1 bg-orange-50 text-orange-700 border border-orange-200 rounded-md text-xs font-bold uppercase tracking-wider">
+            <span className="px-2.5 py-1 bg-orange-50 text-orange-700 border border-orange-200 rounded text-xs font-bold uppercase tracking-wider">
               Urgent
             </span>
           )}
-          {job.tags.map(tag => (
-            <span key={tag} className="px-3 py-1 bg-slate-50 text-slate-600 border border-slate-200 rounded-md text-xs font-bold">
+          {job.tags && job.tags.map(tag => (
+            <span key={tag} className="px-2.5 py-1 bg-slate-50 text-slate-600 border border-slate-200 rounded text-xs font-bold">
               {tag}
             </span>
           ))}
         </div>
         
-        <button className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white text-base font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-md flex-shrink-0">
-          <Mic size={18} /> Voice Apply
-        </button>
+        {/* CLICKABLE APPLY BUTTON */}
+        <Link 
+          to={`/jobs/${job.id}`}
+          className="flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm sm:text-base font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm flex-shrink-0"
+        >
+          <Mic size={16} /> View & Apply
+        </Link>
       </div>
     </div>
   </div>
