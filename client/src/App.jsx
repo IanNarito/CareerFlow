@@ -12,6 +12,11 @@ import JobDetails from './pages/jobs/JobDetails';
 import ApplicantBoard from './pages/hr/ApplicantBoard';
 import CandidateReview from './pages/hr/CandidateReview';
 import ApplicationTracker from './pages/seeker/ApplicationTracker';
+import JobPostings from './pages/hr/JobPostings';
+import Interviews from './pages/hr/Interviews';
+import CompanyProfile from './pages/hr/CompanyProfile';
+import CompanyPublicPage from './pages/seeker/CompanyPublicPage';
+import Settings from './pages/hr/Settings';
 
 
 function App() {
@@ -32,6 +37,11 @@ function App() {
           <Route path="/hr/board" element={<ApplicantBoard />} />
           <Route path="/hr/candidate/:id" element={<CandidateReview />} />
           <Route path="/application/:id" element={<ApplicationTracker />} />
+          <Route path="/hr/jobs" element={<JobPostings />} />
+          <Route path="/hr/interviews" element={<Interviews />} />
+          <Route path="/hr/profile" element={<CompanyProfile />} />
+          <Route path="/company/:id" element={<CompanyPublicPage />} />
+          <Route path="/hr/settings" element={<Settings />} />
         </Routes>
       </div>
     </Router>

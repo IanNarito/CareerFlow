@@ -43,15 +43,16 @@ const HRDashboard = () => {
         </div>
 
         <nav className="flex-1 px-4 py-8 space-y-2">
-          <SidebarLink icon={<LayoutDashboard size={20}/>} label="Dashboard" active />
-          <SidebarLink icon={<Briefcase size={20}/>} label="Job Postings" />
-          <SidebarLink icon={<Users size={20}/>} label="Candidates" badge={18} />
-          <SidebarLink icon={<CalendarIcon size={20}/>} label="Interviews" />
-          <SidebarLink icon={<Building2 size={20}/>} label="Company Profile" />
+          {/* ALL LINKS ARE NOW FULLY WIRED */}
+          <SidebarLink icon={<LayoutDashboard size={20}/>} label="Dashboard" active to="/hr-dashboard" />
+          <SidebarLink icon={<Briefcase size={20}/>} label="Job Postings" to="/hr/jobs" />
+          <SidebarLink icon={<Users size={20}/>} label="Candidates" badge={18} to="/hr/board" />
+          <SidebarLink icon={<CalendarIcon size={20}/>} label="Interviews" to="/hr/interviews" />
+          <SidebarLink icon={<Building2 size={20}/>} label="Company Profile" to="/hr/profile" />
         </nav>
 
         <div className="p-4 border-t border-slate-800">
-          <SidebarLink icon={<Settings size={20}/>} label="Settings" />
+          <SidebarLink icon={<Settings size={20}/>} label="Settings" to="/hr/settings"/>
         </div>
       </aside>
 
@@ -72,7 +73,6 @@ const HRDashboard = () => {
           </div>
           
           <div className="flex items-center gap-5">
-            {/* UPDATED: Top Header Link to Create Job */}
             <Link to="/hr/create-job" className="hidden sm:flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
               <Plus size={18} /> Post New Job
             </Link>
@@ -178,14 +178,20 @@ const HRDashboard = () => {
                             <StageBadge stage={candidate.stage} />
                           </td>
                           <td className="py-4 px-6 text-right">
-                            <button className="text-indigo-600 hover:text-indigo-900 font-bold text-sm bg-indigo-50 px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Link to={`/hr/candidate/c1`} className="inline-block text-indigo-600 hover:text-indigo-900 font-bold text-sm bg-indigo-50 px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
                               Review
-                            </button>
+                            </Link>
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
+                </div>
+                
+                <div className="p-4 border-t border-slate-100 text-center bg-slate-50">
+                  <Link to="/hr/board" className="text-sm font-bold text-indigo-600 hover:text-indigo-800 transition-colors">
+                    View all 156 candidates
+                  </Link>
                 </div>
               </div>
 
@@ -218,7 +224,7 @@ const HRDashboard = () => {
                   </div>
                 </div>
 
-                {/* UPDATED: Sidebar Link to Create Job */}
+                {/* Create Job CTA */}
                 <div className="bg-slate-900 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
                   <div className="absolute -top-10 -right-10 w-32 h-32 bg-indigo-500/30 rounded-full blur-2xl"></div>
                   <h3 className="text-xl font-bold mb-2">Need more workers?</h3>
@@ -241,8 +247,8 @@ const HRDashboard = () => {
 };
 
 // Helper Components
-const SidebarLink = ({ icon, label, badge, active }) => (
-  <Link to="#" className={`flex items-center justify-between px-4 py-3 rounded-xl transition-colors font-bold ${active ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+const SidebarLink = ({ icon, label, badge, active, to = "#" }) => (
+  <Link to={to} className={`flex items-center justify-between px-4 py-3 rounded-xl transition-colors font-bold ${active ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
     <div className="flex items-center gap-3">
       {icon}
       <span>{label}</span>
