@@ -16,7 +16,11 @@ import JobPostings from './pages/hr/JobPostings';
 import Interviews from './pages/hr/Interviews';
 import CompanyProfile from './pages/hr/CompanyProfile';
 import CompanyPublicPage from './pages/seeker/CompanyPublicPage';
-import Settings from './pages/hr/Settings';
+import HRSettings from './pages/hr/Settings';
+import MyApplications from './pages/seeker/MyApplications';
+import SavedJobs from './pages/seeker/SavedJobs';
+import Messages from './pages/seeker/Messages';
+import SeekerSettings from './pages/seeker/Settings';
 
 
 function App() {
@@ -41,7 +45,11 @@ function App() {
           <Route path="/hr/interviews" element={<Interviews />} />
           <Route path="/hr/profile" element={<CompanyProfile />} />
           <Route path="/company/:id" element={<CompanyPublicPage />} />
-          <Route path="/hr/settings" element={<Settings />} />
+          <Route path="/hr/settings" element={<HRSettings />} />
+          <Route path="/applications" element={<MyApplications />} />
+          <Route path="/saved" element={<SavedJobs />} />
+          <Route path="/messages" element={<Messages />} />
+          <Route path="/settings" element={<SeekerSettings />} />
         </Routes>
       </div>
     </Router>
