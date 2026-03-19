@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { 
   LayoutDashboard, Search, MapPin, Briefcase, DollarSign, 
   Bookmark, Filter, CheckCircle2, Mic, Volume2, 
-  HardHat, Truck, Wrench, Zap, Building2, ChevronDown, ShieldCheck
+  HardHat, Truck, Wrench, Zap, Building2, ChevronDown, 
+  ShieldCheck, Leaf, Factory, Flame, Tractor, Droplet, Sparkles
 } from 'lucide-react';
 
 // --- DATA: PHILIPPINE BLUE-COLLAR ROLES ---
@@ -151,25 +152,41 @@ const JobList = () => {
                 <button className="text-sm font-semibold text-blue-600 hover:text-blue-800">Clear</button>
               </div>
 
+              {/* --- UPDATED JOB CATEGORY FILTER --- */}
               <div className="mb-8">
                 <h4 className="text-sm font-bold text-slate-900 mb-4 uppercase tracking-wider">Job Category</h4>
-                <div className="space-y-2.5">
-                  <FilterToggle icon={<Truck size={16}/>} label="Logistics / Driving" checked />
-                  <FilterToggle icon={<HardHat size={16}/>} label="Construction" />
-                  <FilterToggle icon={<Wrench size={16}/>} label="Manufacturing" />
-                  <FilterToggle icon={<Zap size={16}/>} label="Maintenance" />
+                <div className="space-y-2.5 h-64 overflow-y-auto pr-2 custom-scrollbar">
+                  <FilterToggle icon={<Truck size={16}/>} label="Logistics & Delivery" checked />
+                  <FilterToggle icon={<HardHat size={16}/>} label="Construction & Civil Works" />
+                  <FilterToggle icon={<Factory size={16}/>} label="Manufacturing & Assembly" />
+                  <FilterToggle icon={<Wrench size={16}/>} label="Automotive & Mechanics" />
+                  <FilterToggle icon={<Zap size={16}/>} label="Electrical & HVAC" />
+                  <FilterToggle icon={<Flame size={16}/>} label="Welding & Fabrication" />
+                  <FilterToggle icon={<Tractor size={16}/>} label="Heavy Equipment" />
+                  <FilterToggle icon={<Droplet size={16}/>} label="Plumbing & Pipefitting" />
+                  <FilterToggle icon={<Sparkles size={16}/>} label="Facilities & Housekeeping" />
+                  <FilterToggle icon={<ShieldCheck size={16}/>} label="Security Services" />
+                  <FilterToggle icon={<Leaf size={16}/>} label="Agriculture & Mining" />
                 </div>
               </div>
 
+              {/* --- UPDATED REGION FILTER --- */}
               <div>
                 <h4 className="text-sm font-bold text-slate-900 mb-4 uppercase tracking-wider">Region</h4>
-                <div className="space-y-2.5">
-                  <FilterToggle label="Metro Manila" count="1,240" checked />
-                  <FilterToggle label="Calabarzon" count="850" />
-                  <FilterToggle label="Central Luzon" count="432" />
-                  <FilterToggle label="Cebu" count="320" />
+                <div className="space-y-2.5 h-64 overflow-y-auto pr-2 custom-scrollbar">
+                  <FilterToggle label="Metro Manila (NCR)" count="1,240" checked />
+                  <FilterToggle label="CALABARZON (Cavite, Laguna)" count="850" />
+                  <FilterToggle label="Central Luzon (Bulacan, Pampanga)" count="432" />
+                  <FilterToggle label="Central Visayas (Cebu)" count="320" />
+                  <FilterToggle label="Davao Region" count="215" />
+                  <FilterToggle label="Northern Mindanao (CDO)" count="198" />
+                  <FilterToggle label="Western Visayas (Iloilo)" count="156" />
+                  <FilterToggle label="Bicol Region" count="112" />
+                  <FilterToggle label="Ilocos Region" count="85" />
+                  <FilterToggle label="Cordillera (CAR)" count="64" />
                 </div>
               </div>
+
             </div>
           </aside>
 
