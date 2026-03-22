@@ -22,6 +22,12 @@ import MyApplications from './pages/seeker/MyApplications';
 import SavedJobs from './pages/seeker/SavedJobs';
 import Messages from './pages/seeker/Messages';
 import SeekerSettings from './pages/seeker/Settings';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminUsers from './pages/admin/AdminUsers';
+import AdminVerifications from './pages/admin/AdminVerifications';
+import AdminJobs from './pages/admin/AdminJobs';
+import AdminSettings from './pages/admin/AdminSettings';
+import AdminLogin from './pages/admin/AdminLogin';
 
 
 function App() {
@@ -52,6 +58,12 @@ function App() {
           <Route path="/saved" element={<SavedJobs />} />
           <Route path="/messages" element={<Messages />} />
           <Route path="/settings" element={<SeekerSettings />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/users" element={<AdminUsers />} />
+          <Route path="/admin/verifications" element={<AdminVerifications />} />
+          <Route path="/admin/jobs" element={<AdminJobs />} />
+          <Route path="/admin/settings" element={<AdminSettings />} />
+          <Route path="/admin/login" element={<AdminLogin />} />
         </Routes>
       </div>
     </Router>
