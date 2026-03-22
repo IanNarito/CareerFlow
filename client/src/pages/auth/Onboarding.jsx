@@ -49,9 +49,53 @@ const Onboarding = () => {
     setStep(prev => prev + 1);
   };
 
-  const handleFinish = () => {
-    if (role === 'seeker') navigate('/dashboard');
-    else navigate('/hr-dashboard'); 
+ const handleFinish = async () => {
+    // 1. Get the user from localStorage
+    const savedUser = JSON.parse(localStorage.getItem('user'));
+    
+    if (!savedUser) {
+      alert("Session expired. Please log in again.");
+      navigate('/login');
+      return;
+    }
+
+    // 2. Determine Payload
+    const profilePayload = role === 'seeker' ? seekerData : hrData;
+
+    try {
+      const response = await fetch('http://localhost:5000/api/complete-onboarding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: savedUser.id || savedUser.user_id, // Safety: check both id and user_id
+          role: role,
+          profileData: profilePayload
+        }),
+      });
+
+      if (response.ok) {
+        // 3. Update the local session correctly
+        const updatedUser = { ...savedUser, is_onboarded: 1 };
+        
+        // FIXED TYPO HERE: Removed the extra .json
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+
+        console.log("Onboarding successful, navigating...");
+        
+        // 4. Force Redirect
+        if (role === 'seeker') {
+          window.location.href = "/Dashboard"; // Using window.location forces a hard refresh to the dashboard
+        } else {
+          window.location.href = "/hr-dashboard";
+        }
+      } else {
+        const result = await response.json();
+        alert(result.error || "Failed to save profile.");
+      }
+    } catch (error) {
+      console.error("Redirect Error:", error);
+      alert("An error occurred after saving. Please refresh the page.");
+    }
   };
 
   // OTP Logic
@@ -60,6 +104,81 @@ const Onboarding = () => {
     newOtp[index] = value;
     setOtp(newOtp);
     if (index < 5 && value) document.getElementById(`otp-${index + 1}`).focus();
+  };
+
+  // 2. ADD THIS: Auto-verify when 6th digit is entered
+  useEffect(() => {
+    const fullOtp = otp.join('');
+    if (fullOtp.length === 6) {
+      verifyOtpRequest(fullOtp);
+    }
+  }, [otp]);
+
+  // 3. ADD THIS: The function that talks to your Node.js backend
+  const verifyOtpRequest = async (code) => {
+    const savedUser = JSON.parse(localStorage.getItem('user'));
+
+    <button 
+  onClick={sendOtpRequest} // <--- Link it here
+  className="w-full py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-blue-600 shadow-md transition-colors text-lg"
+>
+  Send OTP Code
+</button>
+    
+    try {
+      const response = await fetch('http://localhost:5000/api/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          userId: savedUser.id, 
+          code: code 
+        }),
+      });
+
+      if (response.ok) {
+        alert("Phone Verified!");
+        setStep(prev => prev + 1); // Move to the next step automatically
+      } else {
+        alert("Invalid code. Please try again.");
+        setOtp(['', '', '', '', '', '']); // Clear boxes on error
+        document.getElementById('otp-0').focus(); // Reset focus
+      }
+    } catch (error) {
+      console.error("OTP Verification Error:", error);
+    }
+  };
+
+  const sendOtpRequest = async () => {
+    const savedUser = JSON.parse(localStorage.getItem('user'));
+    
+    // Determine which number to use based on the role
+    const phoneNumber = role === 'seeker' ? seekerData.phone : hrData.phone;
+
+    if (!phoneNumber) {
+      alert("Please enter a phone number first.");
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:5000/api/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          userId: savedUser.id, 
+          phoneNumber: phoneNumber 
+        }),
+      });
+
+      if (response.ok) {
+        setOtpSent(true); // This reveals the 6-digit input boxes in your UI
+        alert("OTP sent! Check your terminal or database.");
+      } else {
+        alert("Failed to send OTP. Check if the backend route exists.");
+      }
+    } catch (error) {
+      console.error("SMS Error:", error);
+      alert("Could not connect to the server.");
+    }
   };
 
   // Dynamic Jobs Logic (Seeker)
@@ -219,61 +338,97 @@ const Onboarding = () => {
                 JOB SEEKER FLOW (Steps 2 - 8)
             ========================================= */}
             
-            {/* SEEKER STEP 2: PERSONAL */}
-            {step === 2 && role === 'seeker' && (
-              <div className="animate-in fade-in slide-in-from-right-8 duration-500 m-auto w-full max-w-3xl">
-                <h2 className="text-4xl font-extrabold text-slate-900 mb-2">Personal Information</h2>
-                <p className="text-slate-500 mb-10 text-lg font-medium">Please provide your details. / <span className="italic">Ibigay ang iyong impormasyon.</span></p>
+           {/* SEEKER STEP 2: PERSONAL */}
+{step === 2 && role === 'seeker' && (
+  <div className="animate-in fade-in slide-in-from-right-8 duration-500 m-auto w-full max-w-3xl">
+    <h2 className="text-4xl font-extrabold text-slate-900 mb-2">Personal Information</h2>
+    <p className="text-slate-500 mb-10 text-lg font-medium">Please provide your details. / <span className="italic">Ibigay ang iyong impormasyon.</span></p>
 
-                <form onSubmit={handleNext} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-bold text-slate-700 mb-2">First Name <span className="italic text-slate-400 font-normal">/ Pangalan</span></label>
-                      <input type="text" required className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-lg" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-bold text-slate-700 mb-2">Last Name <span className="italic text-slate-400 font-normal">/ Apelyido</span></label>
-                      <input type="text" required className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-lg" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-bold text-slate-700 mb-2">Email Address</label>
-                      <div className="relative">
-                        <Mail size={20} className="absolute left-4 top-4 text-slate-400" />
-                        <input type="email" required className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-lg" />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-bold text-slate-700 mb-2">Birthdate <span className="italic text-slate-400 font-normal">/ Kaarawan</span></label>
-                      <div className="relative">
-                        <Calendar size={20} className="absolute left-4 top-4 text-slate-400" />
-                        <input type="date" required className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-slate-700 text-lg" />
-                      </div>
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-bold text-slate-700 mb-2">Home Address <span className="italic text-slate-400 font-normal">/ Tirahan</span></label>
-                      <div className="relative">
-                        <MapPin size={20} className="absolute left-4 top-4 text-slate-400" />
-                        <input type="text" required className="w-full pl-12 pr-12 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-lg" />
-                      </div>
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-bold text-slate-700 mb-3">Gender <span className="italic text-slate-400 font-normal">/ Kasarian</span></label>
-                      <div className="flex gap-4">
-                        {['Male', 'Female', 'Prefer not to say'].map(g => (
-                          <label key={g} className={`flex-1 flex items-center justify-center p-4 border-2 rounded-xl cursor-pointer font-bold transition-all text-lg ${seekerData.gender === g ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                            <input type="radio" name="gender" className="hidden" onChange={() => setSeekerData({...seekerData, gender: g})} />
-                            {g}
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="pt-8 mt-6 border-t border-slate-100 flex justify-end">
-                    <button type="submit" className="px-10 py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-md text-lg">Next Step <ArrowRight size={20} className="inline ml-1"/></button>
-                  </div>
-                </form>
-              </div>
-            )}
+    <form onSubmit={handleNext} className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label className="block text-sm font-bold text-slate-700 mb-2">First Name <span className="italic text-slate-400 font-normal">/ Pangalan</span></label>
+          <input 
+            type="text" 
+            required 
+            value={seekerData.firstName} // ADDED
+            onChange={(e) => setSeekerData({...seekerData, firstName: e.target.value})} // ADDED
+            className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-lg" 
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-bold text-slate-700 mb-2">Last Name <span className="italic text-slate-400 font-normal">/ Apelyido</span></label>
+          <input 
+            type="text" 
+            required 
+            value={seekerData.lastName} // ADDED
+            onChange={(e) => setSeekerData({...seekerData, lastName: e.target.value})} // ADDED
+            className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-lg" 
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-bold text-slate-700 mb-2">Email Address</label>
+          <div className="relative">
+            <Mail size={20} className="absolute left-4 top-4 text-slate-400" />
+            <input 
+              type="email" 
+              required 
+              value={seekerData.email} // ADDED
+              onChange={(e) => setSeekerData({...seekerData, email: e.target.value})} // ADDED
+              className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-lg" 
+            />
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm font-bold text-slate-700 mb-2">Birthdate <span className="italic text-slate-400 font-normal">/ Kaarawan</span></label>
+          <div className="relative">
+            <Calendar size={20} className="absolute left-4 top-4 text-slate-400" />
+            <input 
+              type="date" 
+              required 
+              value={seekerData.dob} // ADDED
+              onChange={(e) => setSeekerData({...seekerData, dob: e.target.value})} // ADDED
+              className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-slate-700 text-lg" 
+            />
+          </div>
+        </div>
+        <div className="md:col-span-2">
+          <label className="block text-sm font-bold text-slate-700 mb-2">Home Address <span className="italic text-slate-400 font-normal">/ Tirahan</span></label>
+          <div className="relative">
+            <MapPin size={20} className="absolute left-4 top-4 text-slate-400" />
+            <input 
+              type="text" 
+              required 
+              value={seekerData.address} // ADDED
+              onChange={(e) => setSeekerData({...seekerData, address: e.target.value})} // ADDED
+              className="w-full pl-12 pr-12 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-lg" 
+            />
+          </div>
+        </div>
+        <div className="md:col-span-2">
+          <label className="block text-sm font-bold text-slate-700 mb-3">Gender <span className="italic text-slate-400 font-normal">/ Kasarian</span></label>
+          <div className="flex gap-4">
+            {['Male', 'Female', 'Prefer not to say'].map(g => (
+              <label key={g} className={`flex-1 flex items-center justify-center p-4 border-2 rounded-xl cursor-pointer font-bold transition-all text-lg ${seekerData.gender === g ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                <input 
+                  type="radio" 
+                  name="gender" 
+                  className="hidden" 
+                  checked={seekerData.gender === g}
+                  onChange={() => setSeekerData({...seekerData, gender: g})} 
+                />
+                {g}
+              </label>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="pt-8 mt-6 border-t border-slate-100 flex justify-end">
+        <button type="submit" className="px-10 py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-md text-lg">Next Step <ArrowRight size={20} className="inline ml-1"/></button>
+      </div>
+    </form>
+  </div>
+)}
 
             {/* SEEKER STEP 3: OTP */}
             {step === 3 && role === 'seeker' && (
@@ -303,49 +458,105 @@ const Onboarding = () => {
             )}
 
             {/* SEEKER STEP 4: QUALS & ID */}
-            {step === 4 && role === 'seeker' && (
-              <div className="animate-in fade-in slide-in-from-right-8 duration-500 m-auto w-full max-w-3xl">
-                <h2 className="text-4xl font-extrabold text-slate-900 mb-2">Qualifications</h2>
-                <form onSubmit={handleNext} className="space-y-8 mt-8">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-bold text-slate-700 mb-2">Educational Attainment <span className="italic text-slate-400 font-normal">/ Edukasyon</span></label>
-                      <select required className="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-bold text-slate-700 text-lg">
-                        <option value="">Select Level...</option>
-                        <option value="HighSchool">High School Graduate</option>
-                        <option value="College">College Graduate</option>
-                        <option value="Vocational">Vocational / TESDA</option>
-                      </select>
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-bold text-slate-700 mb-2">Preferred Jobs <span className="italic text-slate-400 font-normal">/ Gustong Trabaho</span></label>
-                      <div className="flex gap-3 mb-4">
-                        <input type="text" value={seekerData.newJobInput} onChange={(e) => setSeekerData({...seekerData, newJobInput: e.target.value})} className="flex-1 px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-lg" placeholder="e.g. Delivery Driver..." />
-                        <button onClick={addPreferredJob} className="px-8 py-4 bg-slate-900 text-white font-bold rounded-xl shrink-0 text-lg">Add</button>
-                      </div>
-                      <div className="flex flex-wrap gap-3 min-h-[48px]">
-                        {seekerData.preferredJobs.map((job, idx) => (
-                          <div key={idx} className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-xl text-base font-bold">
-                            {job} <button type="button" onClick={() => removeJob(job)}><X size={16}/></button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="md:col-span-2 bg-slate-50 border border-slate-200 rounded-3xl p-8">
-                      <h4 className="font-bold text-slate-900 mb-2 text-lg">Upload Valid ID <span className="italic text-slate-500 font-normal text-base">/ Mag-upload ng ID</span></h4>
-                      <div className="border-2 border-dashed border-slate-300 bg-white rounded-2xl p-10 flex flex-col items-center justify-center text-center hover:bg-blue-50 relative cursor-pointer">
-                        <input type="file" required accept="image/*" onChange={(e) => setSeekerData({...seekerData, idFile: e.target.files[0]})} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                        <UploadCloud size={40} className="text-slate-400 mb-4" />
-                        <span className="text-lg font-bold text-blue-600">Tap to upload your ID</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="pt-8 mt-6 border-t border-slate-100 flex justify-end">
-                    <button type="submit" disabled={seekerData.preferredJobs.length === 0} className="px-10 py-4 bg-blue-600 text-white text-lg font-bold rounded-xl disabled:opacity-50">Next Step <ArrowRight size={20} className="inline ml-1"/></button>
-                  </div>
-                </form>
+{step === 4 && role === 'seeker' && (
+  <div className="animate-in fade-in slide-in-from-right-8 duration-500 m-auto w-full max-w-3xl">
+    <h2 className="text-4xl font-extrabold text-slate-900 mb-2">Qualifications</h2>
+    <form onSubmit={handleNext} className="space-y-8 mt-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        
+        {/* Education Level - Added value and onChange */}
+        <div className="md:col-span-2">
+          <label className="block text-sm font-bold text-slate-700 mb-2">
+            Educational Attainment <span className="italic text-slate-400 font-normal">/ Edukasyon</span>
+          </label>
+          <select 
+            required 
+            value={seekerData.education} 
+            onChange={(e) => setSeekerData({...seekerData, education: e.target.value})}
+            className="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-bold text-slate-700 text-lg"
+          >
+            <option value="">Select Level...</option>
+            <option value="HighSchool">High School Graduate</option>
+            <option value="College">College Graduate</option>
+            <option value="Vocational">Vocational / TESDA</option>
+          </select>
+        </div>
+
+        {/* Preferred Jobs */}
+        <div className="md:col-span-2">
+          <label className="block text-sm font-bold text-slate-700 mb-2">
+            Preferred Jobs <span className="italic text-slate-400 font-normal">/ Gustong Trabaho</span>
+          </label>
+          <div className="flex gap-3 mb-4">
+            <input 
+              type="text" 
+              value={seekerData.newJobInput} 
+              onChange={(e) => setSeekerData({...seekerData, newJobInput: e.target.value})} 
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  addPreferredJob(e);
+                }
+              }}
+              className="flex-1 px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-lg" 
+              placeholder="e.g. Delivery Driver..." 
+            />
+            <button 
+              type="button" // Important: type button stops form submission
+              onClick={addPreferredJob} 
+              className="px-8 py-4 bg-slate-900 text-white font-bold rounded-xl shrink-0 text-lg hover:bg-slate-800"
+            >
+              Add
+            </button>
+          </div>
+          
+          {/* Displaying Job Tags */}
+          <div className="flex flex-wrap gap-3 min-h-[48px]">
+            {seekerData.preferredJobs.map((job, idx) => (
+              <div key={idx} className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-xl text-base font-bold animate-in zoom-in duration-200">
+                {job} 
+                <button type="button" onClick={() => removeJob(job)} className="hover:text-red-500">
+                  <X size={16}/>
+                </button>
               </div>
-            )}
+            ))}
+          </div>
+        </div>
+
+        {/* File Upload UI */}
+        <div className="md:col-span-2 bg-slate-50 border border-slate-200 rounded-3xl p-8">
+          <h4 className="font-bold text-slate-900 mb-2 text-lg">
+            Upload Valid ID <span className="italic text-slate-500 font-normal text-base">/ Mag-upload ng ID</span>
+          </h4>
+          <div className={`border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center text-center transition-all relative cursor-pointer ${seekerData.idFile ? 'border-green-400 bg-green-50' : 'border-slate-300 bg-white hover:bg-blue-50'}`}>
+            <input 
+              type="file" 
+              required 
+              accept="image/*" 
+              onChange={(e) => setSeekerData({...seekerData, idFile: e.target.files[0]})} 
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
+            />
+            <UploadCloud size={40} className={seekerData.idFile ? "text-green-500 mb-4" : "text-slate-400 mb-4"} />
+            <span className={`text-lg font-bold ${seekerData.idFile ? 'text-green-700' : 'text-blue-600'}`}>
+              {seekerData.idFile ? `ID Selected: ${seekerData.idFile.name}` : 'Tap to upload your ID'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="pt-8 mt-6 border-t border-slate-100 flex justify-end">
+        {/* Improved Button Logic: Must have Education, at least 1 Job, and an ID file */}
+        <button 
+          type="submit" 
+          disabled={!seekerData.education || seekerData.preferredJobs.length === 0 || !seekerData.idFile} 
+          className="px-10 py-4 bg-blue-600 text-white text-lg font-bold rounded-xl disabled:opacity-50 disabled:bg-slate-300 transition-all hover:bg-blue-700 shadow-lg shadow-blue-600/20"
+        >
+          Next Step <ArrowRight size={20} className="inline ml-1"/>
+        </button>
+      </div>
+    </form>
+  </div>
+)}
 
             {/* SEEKER STEP 6, 7, 8 (Resume & Success) handled below... */}
 

@@ -19,35 +19,39 @@ const Login = () => {
     setLoading(true);
 
     try {
-      // 1. Web Security & CRUD: Verify credentials via your Node.js API
       const response = await fetch('http://localhost:5000/api/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        // 2. Information Management: Store user session (simplified)
+        // 1. Store user session (This should include user_id, role, and is_onboarded)
         localStorage.setItem('user', JSON.stringify(data));
         
         alert(`Welcome back, ${data.username}!`);
 
-        // 3. Role-Based Redirection: HR Side vs. Job Seeker
+        // 2. NEW LOGIC: Check Onboarding status from your MySQL table
+        // 0 usually means false in MySQL TINYINT
+        if (data.is_onboarded === 0 || data.is_onboarded === false) {
+          navigate('/onboarding'); 
+          return; 
+        }
+
+        // 3. Role-Based Redirection (For users who have already onboarded)
         if (data.role === 'hr' || data.role === 'admin') {
-          navigate('/hr-dashboard'); // Or wherever your HR side lives
+          navigate('/hr-dashboard');
         } else {
-          navigate('/'); // Redirect to the main Dashboard/Home
+          navigate('/Dashboard'); 
         }
       } else {
-        alert(data.error || "Login failed. Please check your credentials.");
+        alert(data.error || "Login failed.");
       }
     } catch (error) {
       console.error('Login Error:', error);
-      alert("Could not connect to the server. Is your Node.js backend running?");
+      alert("Could not connect to the server.");
     } finally {
       setLoading(false);
     }
