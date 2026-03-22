@@ -49,7 +49,7 @@ const Interviews = () => {
           <SidebarLink icon={<Briefcase size={20}/>} label="Job Postings" to="/hr/jobs" />
           <SidebarLink icon={<Users size={20}/>} label="Candidates" badge={18} to="/hr/board" />
           <SidebarLink icon={<CalendarIcon size={20}/>} label="Interviews" active to="/hr/interviews" />
-          <SidebarLink icon={<Building2 size={20}/>} label="Company Profile" />
+          <SidebarLink icon={<Building2 size={20}/>} label="Company Profile" to="/hr/profile"/>
         </nav>
 
         <div className="p-4 border-t border-slate-800">
