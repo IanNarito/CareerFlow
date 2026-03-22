@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Search, Briefcase, Bookmark, 
   MessageSquare, Mic, Settings, Bell, ChevronRight, 
@@ -30,6 +30,35 @@ const RECOMMENDED_JOBS = [
 ];
 
 const Dashboard = () => {
+  const navigate = useNavigate();
+  const [user, setUser] = useState({ username: 'User', role: 'Applicant', id: null });
+
+  // --- LOGIC: Session Management & Route Protection ---
+  useEffect(() => {
+    const savedUser = JSON.parse(localStorage.getItem('user'));
+
+    // 1. If no user is logged in, kick to login
+    if (!savedUser) {
+      navigate('/login');
+      return;
+    }
+
+    // 2. If user is logged in but hasn't onboarded, kick to onboarding
+    if (savedUser.is_onboarded === 0 || savedUser.is_onboarded === false) {
+      navigate('/onboarding');
+      return;
+    }
+
+    // 3. Set the user data for the UI
+    setUser(savedUser);
+  }, [navigate]);
+
+  // Logout Handler
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    navigate('/login');
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex overflow-hidden">
       
@@ -43,7 +72,6 @@ const Dashboard = () => {
         </div>
 
         <nav className="flex-1 px-4 py-8 space-y-2">
-          {/* FULLY WIRED SIDEBAR LINKS */}
           <SidebarLink icon={<LayoutDashboard size={20}/>} label="Dashboard" active to="/dashboard" />
           <SidebarLink icon={<Search size={20}/>} label="Find Jobs" to="/jobs" />
           <SidebarLink icon={<Briefcase size={20}/>} label="My Applications" badge={2} to="/applications" />
@@ -53,7 +81,9 @@ const Dashboard = () => {
 
         <div className="p-4 border-t border-slate-800 space-y-2">
           <SidebarLink icon={<Mic size={20}/>} label="Voice Profile" to="/voice-builder" />
-          <SidebarLink icon={<Settings size={20}/>} label="Settings" to="/settings" />
+          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-bold text-slate-400 hover:bg-red-900/20 hover:text-red-400">
+            <Settings size={20}/> Logout
+          </button>
         </div>
       </aside>
 
@@ -77,10 +107,12 @@ const Dashboard = () => {
             <div className="h-8 w-px bg-slate-200 hidden sm:block"></div>
             <div className="flex items-center gap-3 cursor-pointer pl-1 sm:pl-2">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-slate-900 leading-none">Ciel Valencia</p>
-                <p className="text-xs text-slate-500 mt-1">Applicant</p>
+                <p className="text-sm font-bold text-slate-900 leading-none">{user.username}</p>
+                <p className="text-xs text-slate-500 mt-1 uppercase tracking-tighter">{user.role}</p>
               </div>
-              <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 border border-blue-200 flex items-center justify-center font-bold">CV</div>
+              <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 border border-blue-200 flex items-center justify-center font-bold">
+                {user.username.charAt(0).toUpperCase()}
+              </div>
             </div>
           </div>
         </header>
@@ -94,7 +126,7 @@ const Dashboard = () => {
               <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
               
               <div className="relative z-10">
-                <h2 className="text-2xl sm:text-3xl font-extrabold mb-2">Welcome back, Ciel!</h2>
+                <h2 className="text-2xl sm:text-3xl font-extrabold mb-2">Welcome back, {user.username.split(' ')[0]}!</h2>
                 <p className="text-slate-300">You have <span className="text-white font-bold">1 action required</span> and <span className="text-white font-bold">1 unread message</span>.</p>
               </div>
 
@@ -107,13 +139,13 @@ const Dashboard = () => {
                   <CheckCircle2 size={16} className="absolute text-blue-400" />
                 </div>
                 <div>
-                  <p className="font-bold text-sm">Voice Profile Complete</p>
+                  <p className="font-bold text-sm">Profile Active</p>
                   <p className="text-xs text-slate-400">Ready to quick-apply</p>
                 </div>
               </div>
             </div>
 
-            {/* Quick Stats (Now a 4-column grid for the new messages/saved stats) */}
+            {/* Quick Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               {STATS.map((stat, idx) => (
                 <div key={idx} className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm flex items-center gap-3 sm:gap-4">
@@ -165,7 +197,7 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                {/* NEW: Recent Messages Widget */}
+                {/* Recent Messages Widget */}
                 <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col">
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
