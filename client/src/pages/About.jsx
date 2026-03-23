@@ -5,6 +5,7 @@ import {
   Briefcase, Users, CheckCircle2, Building2,
   Smartphone, Lock, Zap, Globe
 } from 'lucide-react';
+import Footer from '../components/Footer';
 
 const About = () => {
   return (
@@ -227,6 +228,8 @@ const About = () => {
           </div>
         </div>
       </section>
+
+      <Footer />
 
     </div>
   );

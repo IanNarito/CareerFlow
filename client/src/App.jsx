@@ -28,6 +28,9 @@ import AdminVerifications from './pages/admin/AdminVerifications';
 import AdminJobs from './pages/admin/AdminJobs';
 import AdminSettings from './pages/admin/AdminSettings';
 import AdminLogin from './pages/admin/AdminLogin';
+import Features from './pages/Features';
+import Contact from './pages/Contact';
+import FAQ from './pages/FAQ';
 
 
 function App() {
@@ -37,6 +40,9 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
+          <Route path="/features" element={<Features />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/faq" element={<FAQ />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/jobs" element={<JobList />} />
