@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // Added useEffect
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Briefcase, MapPin, DollarSign, 
@@ -9,6 +9,10 @@ import {
 const CreateJob = () => {
   const navigate = useNavigate();
   
+  // --- ADDED: DATABASE STATES ---
+  const [companyName, setCompanyName] = useState(""); 
+  const [hrId, setHrId] = useState(null);
+
   // HR Form State
   const [jobData, setJobData] = useState({
     title: '',
@@ -22,6 +26,29 @@ const CreateJob = () => {
     description: '',
     requirements: []
   });
+
+  // --- ADDED: FETCH PROFILE DATA ON LOAD ---
+  useEffect(() => {
+    const savedUser = JSON.parse(localStorage.getItem('user'));
+    
+    if (!savedUser) {
+      navigate('/login');
+      return;
+    }
+    
+    const id = savedUser.id || savedUser.user_id;
+    setHrId(id);
+
+    // Get the company name from your backend so handlePublish can use it
+    fetch(`http://localhost:5000/api/hr/profile/${id}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.company_name) {
+          setCompanyName(data.company_name);
+        }
+      })
+      .catch(err => console.error("Error fetching HR info:", err));
+  }, [navigate]);
 
   // Blue-collar specific certifications
   const availableCerts = [
@@ -39,11 +66,30 @@ const CreateJob = () => {
     }));
   };
 
-  const handlePublish = (e) => {
+  const handlePublish = async (e) => {
     e.preventDefault();
-    // Simulate API call to backend
-    alert("Job Posted Successfully!");
-    navigate('/hr-dashboard');
+
+    try {
+      const response = await fetch('http://localhost:5000/api/jobs/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hrId: hrId,
+          companyName: companyName, // Now defined via state!
+          jobData: jobData
+        })
+      });
+
+      if (response.ok) {
+        alert("Job Posted Successfully!");
+        navigate('/hr-dashboard');
+      } else {
+        alert("Failed to post job. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Server connection error.");
+    }
   };
 
   return (
@@ -64,7 +110,10 @@ const CreateJob = () => {
               <h1 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
                 Create Job Posting
               </h1>
-              <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider">BuildRight Corp</p>
+              {/* UPDATED: DYNAMIC COMPANY NAME */}
+              <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider">
+                {companyName || "Loading Company..."}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -297,10 +346,12 @@ const CreateJob = () => {
                 
                 <div className="border border-slate-100 rounded-2xl p-5 shadow-sm bg-slate-50">
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 bg-indigo-100 text-indigo-700 rounded-lg flex items-center justify-center font-bold">BR</div>
+                    <div className="w-10 h-10 bg-indigo-100 text-indigo-700 rounded-lg flex items-center justify-center font-bold">
+                        {companyName ? companyName.charAt(0) : "B"}
+                    </div>
                     <div>
                       <h4 className="font-bold text-slate-900 leading-tight truncate w-48">{jobData.title || "Job Title"}</h4>
-                      <p className="text-xs text-slate-500 font-medium">BuildRight Corp</p>
+                      <p className="text-xs text-slate-500 font-medium">{companyName || "Your Company"}</p>
                     </div>
                   </div>
                   
