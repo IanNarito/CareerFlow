@@ -393,5 +393,274 @@ app.put('/api/hr/profile/update/:hrId', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
+// --- FETCH APPLICATION TRACKING DETAILS ---
+app.get('/api/jobseeker/application/:appId', async (req, res) => {
+    const { appId } = req.params;
+    try {
+        const query = `
+            SELECT 
+                a.app_id, a.status, a.applied_at, a.interview_date, a.match_score,
+                j.title as job_title, j.location as job_location, j.description as job_desc,
+                p.company_name, p.location as company_location
+            FROM applications a
+            JOIN jobs j ON a.job_id = j.job_id
+            JOIN profiles p ON j.hr_id = p.user_id
+            WHERE a.app_id = ?
+        `;
+        const [rows] = await db.execute(query, [appId]);
+        
+        if (rows.length > 0) {
+            res.json(rows[0]);
+        } else {
+            res.status(404).json({ error: "Application record not found" });
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- 1. GET PUBLIC COMPANY PROFILE ---
+app.get('/api/public/company/:hrId', async (req, res) => {
+    const { hrId } = req.params;
+    try {
+        const query = `SELECT company_name, industry, location, description, website FROM profiles WHERE user_id = ?`;
+        const [rows] = await db.execute(query, [hrId]);
+        if (rows.length > 0) res.json(rows[0]);
+        else res.status(404).json({ error: "Company not found" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- 2. GET ACTIVE JOBS FOR THIS COMPANY ---
+app.get('/api/public/company/:hrId/jobs', async (req, res) => {
+    const { hrId } = req.params;
+    try {
+        const query = `SELECT * FROM jobs WHERE hr_id = ? AND status = 'active' ORDER BY posted_at DESC`;
+        const [rows] = await db.execute(query, [hrId]);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- 1. GET CONVERSATION LIST (INBOX) ---
+app.get('/api/messages/inbox/:userId', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const query = `
+            SELECT DISTINCT 
+                u.user_id, p.company_name, p.first_name, p.last_name, 
+                j.title as role,
+                (SELECT message_text FROM messages 
+                 WHERE (sender_id = u.user_id AND receiver_id = ?) 
+                 OR (sender_id = ? AND receiver_id = u.user_id) 
+                 ORDER BY created_at DESC LIMIT 1) as lastMessage,
+                (SELECT created_at FROM messages 
+                 WHERE (sender_id = u.user_id AND receiver_id = ?) 
+                 OR (sender_id = ? AND receiver_id = u.user_id) 
+                 ORDER BY created_at DESC LIMIT 1) as time
+            FROM users u
+            JOIN profiles p ON u.user_id = p.user_id
+            JOIN applications a ON (a.user_id = u.user_id OR a.user_id = ?)
+            JOIN jobs j ON a.job_id = j.job_id
+            WHERE u.user_id != ?
+        `;
+        const [rows] = await db.execute(query, [userId, userId, userId, userId, userId, userId]);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- 2. GET MESSAGES FOR A SPECIFIC CHAT ---
+app.get('/api/messages/history/:userId/:otherId', async (req, res) => {
+    const { userId, otherId } = req.params;
+    try {
+        const query = `
+            SELECT * FROM messages 
+            WHERE (sender_id = ? AND receiver_id = ?) 
+            OR (sender_id = ? AND receiver_id = ?)
+            ORDER BY created_at ASC
+        `;
+        const [rows] = await db.execute(query, [userId, otherId, otherId, userId]);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- 3. SEND A MESSAGE ---
+app.post('/api/messages/send', async (req, res) => {
+    const { sender_id, receiver_id, message_text, message_type } = req.body;
+    try {
+        await db.execute(
+            'INSERT INTO messages (sender_id, receiver_id, message_text, message_type) VALUES (?, ?, ?, ?)',
+            [sender_id, receiver_id, message_text, message_type || 'text']
+        );
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- GET JOB SEEKER APPLICATIONS ---
+app.get('/api/jobseeker/applications/:userId', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const query = `
+            SELECT 
+                a.app_id as id, a.status, a.applied_at, a.match_score,
+                j.title as jobTitle, j.location,
+                p.company_name as company
+            FROM applications a
+            JOIN jobs j ON a.job_id = j.job_id
+            JOIN profiles p ON j.hr_id = p.user_id
+            WHERE a.user_id = ?
+            ORDER BY a.applied_at DESC
+        `;
+        const [rows] = await db.execute(query, [userId]);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- GET ALL SAVED JOBS FOR A USER ---
+app.get('/api/saved-jobs/:userId', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const query = `
+            SELECT s.save_id, s.saved_at, j.*, p.company_name
+            FROM saved_jobs s
+            JOIN jobs j ON s.job_id = j.job_id
+            JOIN profiles p ON j.hr_id = p.user_id
+            WHERE s.user_id = ?
+            ORDER BY s.saved_at DESC
+        `;
+        const [rows] = await db.execute(query, [userId]);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- REMOVE A SAVED JOB ---
+app.delete('/api/saved-jobs/:userId/:jobId', async (req, res) => {
+    const { userId, jobId } = req.params;
+    try {
+        await db.execute('DELETE FROM saved_jobs WHERE user_id = ? AND job_id = ?', [userId, jobId]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/jobseeker/dashboard/:userId', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        // 1. Get Stats (Applications, Saved, Unread)
+        const [appCount] = await db.execute('SELECT COUNT(*) as c FROM applications WHERE user_id = ?', [userId]);
+        const [savedCount] = await db.execute('SELECT COUNT(*) as c FROM saved_jobs WHERE user_id = ?', [userId]);
+        const [unreadMsg] = await db.execute('SELECT COUNT(*) as c FROM messages WHERE receiver_id = ? AND is_read = 0', [userId]);
+        const [intvCount] = await db.execute('SELECT COUNT(*) as c FROM applications WHERE user_id = ? AND status = "Interview Scheduled"', [userId]);
+
+        // 2. Recent Applications
+        const [recentApps] = await db.execute(`
+            SELECT a.app_id as id, a.status, a.applied_at, j.title as jobTitle, p.company_name as company
+            FROM applications a JOIN jobs j ON a.job_id = j.job_id JOIN profiles p ON j.hr_id = p.user_id
+            WHERE a.user_id = ? ORDER BY a.applied_at DESC LIMIT 3`, [userId]);
+
+        // 3. Recent Messages
+        const [recentMessages] = await db.execute(`
+            SELECT m.*, p.company_name as company
+            FROM messages m JOIN profiles p ON m.sender_id = p.user_id
+            WHERE m.receiver_id = ? ORDER BY m.created_at DESC LIMIT 3`, [userId]);
+
+        // 4. Matches (Recommended Jobs)
+        const [recommended] = await db.execute(`
+            SELECT j.*, p.company_name FROM jobs j JOIN profiles p ON j.hr_id = p.user_id
+            WHERE j.status = 'active' ORDER BY j.posted_at DESC LIMIT 3`);
+
+        res.json({
+            stats: { activeCount: appCount[0].c, savedCount: savedCount[0].c, unreadMessages: unreadMsg[0].c, interviewCount: intvCount[0].c },
+            recentApps,
+            recentMessages,
+            recommendedJobs: recommended
+        });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/jobseeker/profile/save', async (req, res) => {
+    const { user_id, skills, description } = req.body;
+    try {
+        // 1. Update the profile
+        await db.execute(
+            'UPDATE profiles SET skills = ?, description = ? WHERE user_id = ?',
+            [skills, description, user_id]
+        );
+
+        // 2. Mark user as onboarded in the users table
+        await db.execute(
+            'UPDATE users SET is_onboarded = 1 WHERE user_id = ?',
+            [user_id]
+        );
+
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+const { extractResumeInfo } = require('./gemini');
+
+app.post('/api/ai/extract-resume', async (req, res) => {
+    const { transcript } = req.body;
+
+    try {
+        const structuredData = await extractResumeInfo(transcript);
+        res.json(structuredData);
+    } catch (err) {
+        console.error("Gemini Error:", err);
+        res.status(500).json({ error: "AI processing failed" });
+    }
+});
+
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
+const genAI = new GoogleGenerativeAI("YOUR_GEMINI_API_KEY");
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+app.post('/api/ai/extract-resume', async (req, res) => {
+    const { transcript, step } = req.body;
+
+    // Custom prompt based on the interview step
+    let promptSuffix = "";
+    if (step === 0) promptSuffix = "Extract the 'role' and the 'company'.";
+    if (step === 1) promptSuffix = "Extract 2-3 professional 'responsibilities' as bullet points.";
+    if (step === 2) promptSuffix = "Extract a list of 3-5 technical 'skills' or tools mentioned.";
+
+    const prompt = `
+        Context: The user is a blue-collar worker in the Philippines providing voice answers for a resume. 
+        The answer might be in Taglish (Tagalog-English).
+        Transcript: "${transcript}"
+        Task: ${promptSuffix} Translate to professional English if needed. 
+        Return ONLY a raw JSON object with these keys: "role", "company", "responsibilities" (array), "skills" (array).
+    `;
+
+    try {
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        let text = response.text();
+        
+        // Clean the markdown if Gemini returns it with ```json blocks
+        const cleanedJson = text.replace(/```json|```/g, "").trim();
+        res.json(JSON.parse(cleanedJson));
+    } catch (err) {
+        console.error("Gemini Error:", err);
+        res.status(500).json({ error: "Failed to parse AI response" });
+    }
+});
 // Important: Export the app so index.js can see it
 module.exports = app;
