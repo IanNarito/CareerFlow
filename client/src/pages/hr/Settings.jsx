@@ -12,6 +12,12 @@ const Settings = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('Account');
   
+  // --- ADDED LOGOUT LOGIC ---
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    navigate('/'); 
+  };
+
   // Mock Toggle States
   const [toggles, setToggles] = useState({
     emailNewApp: true,
@@ -103,7 +109,8 @@ const Settings = () => {
                 />
                 
                 <div className="pt-8 mt-8 border-t border-slate-200">
-                  <button onClick={() => navigate('/')} className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-xl font-bold transition-colors">
+                  {/* FIXED BUTTON HERE */}
+                  <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-xl font-bold transition-colors">
                     <LogOut size={18} /> Sign Out
                   </button>
                 </div>
