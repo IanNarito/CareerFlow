@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Apr 03, 2026 at 11:05 AM
+-- Generation Time: Apr 04, 2026 at 07:28 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -37,6 +37,45 @@ CREATE TABLE `applications` (
   `interview_date` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Dumping data for table `applications`
+--
+
+INSERT INTO `applications` (`app_id`, `user_id`, `job_id`, `status`, `match_score`, `applied_at`, `interview_date`) VALUES
+(1, 3, 1, 'under review', 85, '2026-04-04 15:05:55', NULL),
+(2, 3, 2, 'rejected', 85, '2026-04-04 17:01:02', NULL),
+(3, 3, 2, 'hired', 85, '2026-04-04 17:06:58', NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `interviews`
+--
+
+CREATE TABLE `interviews` (
+  `interview_id` int(11) NOT NULL,
+  `app_id` int(11) NOT NULL,
+  `interview_date` datetime NOT NULL,
+  `location` varchar(255) DEFAULT NULL,
+  `status` enum('Scheduled','Completed','Cancelled') DEFAULT 'Scheduled',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `interviews`
+--
+
+INSERT INTO `interviews` (`interview_id`, `app_id`, `interview_date`, `location`, `status`, `created_at`) VALUES
+(1, 1, '2026-04-04 12:00:00', 'CareerFlow Office / Online', 'Scheduled', '2026-04-04 15:51:50'),
+(4, 1, '2026-04-11 23:55:00', 'CareerFlow Office / Online', 'Cancelled', '2026-04-04 15:55:00'),
+(5, 1, '2026-04-06 12:30:00', 'CareerFlow Office / Online', 'Scheduled', '2026-04-04 16:00:48'),
+(6, 1, '2026-04-05 12:30:00', 'CareerFlow Office / Online', 'Cancelled', '2026-04-04 16:03:43'),
+(7, 1, '2026-04-04 12:00:00', 'CareerFlow Office / Online', 'Scheduled', '2026-04-04 16:19:31'),
+(8, 1, '2026-04-05 13:00:00', 'CareerFlow Office / Online', 'Cancelled', '2026-04-04 16:27:20'),
+(9, 1, '2026-04-05 13:30:00', 'CareerFlow Office / Online', 'Scheduled', '2026-04-04 16:29:19'),
+(10, 2, '2026-04-06 13:30:00', 'CareerFlow Office / Online', 'Scheduled', '2026-04-04 17:02:53'),
+(11, 3, '2026-04-08 13:07:00', 'CareerFlow Office / Online', 'Completed', '2026-04-04 17:07:24');
+
 -- --------------------------------------------------------
 
 --
@@ -67,7 +106,8 @@ CREATE TABLE `jobs` (
 --
 
 INSERT INTO `jobs` (`job_id`, `hr_id`, `title`, `vacancies`, `location`, `employment_type`, `salary_min`, `salary_max`, `pay_period`, `education_level`, `company_name`, `salary_range`, `required_skills`, `description`, `status`, `posted_at`) VALUES
-(1, 1, 'Jowa in ish', 1, 'pampanga', 'Full-time', 2000000.00, 50000000.00, 'Per Day', 'College Level', 'sdfzsdfzsdfzdf', NULL, '[]', 'dapat daw hindi humihinga tapos malaki (yung puso)', 'active', '2026-03-25');
+(1, 1, 'Jowa in ish', 1, 'pampanga', 'Full-time', 2000000.00, 50000000.00, 'Per Day', 'College Level', 'sdfzsdfzsdfzdf', NULL, '[]', 'dapat daw hindi humihinga tapos malaki (yung puso)', 'active', '2026-03-25'),
+(2, 1, 'manananggal', 1, 'manila', 'Part-time', 6000.00, 10000.00, 'Per Week', 'High School Graduate', 'Camp Sawi', NULL, '[]', 'dapat magaling lumipad tapos hindi nakikita sa gabi', 'active', '2026-04-04');
 
 -- --------------------------------------------------------
 
@@ -126,17 +166,18 @@ CREATE TABLE `profiles` (
   `raw_image` longblob DEFAULT NULL,
   `processed_image` longblob DEFAULT NULL,
   `voice_transcript` text DEFAULT NULL,
-  `completion_pct` int(11) DEFAULT 0
+  `completion_pct` int(11) DEFAULT 0,
+  `skills` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `profiles`
 --
 
-INSERT INTO `profiles` (`profile_id`, `user_id`, `first_name`, `last_name`, `phone`, `dob`, `gender`, `location`, `description`, `specialization`, `education_level`, `preferred_jobs`, `company_name`, `corporate_email`, `company_size`, `industry`, `raw_image`, `processed_image`, `voice_transcript`, `completion_pct`) VALUES
-(1, 1, 'Cyrus Jake', 'Camalla', '09972947232', '2006-12-08', 'Male', 'pampanga', 'Leading boys and girls to their ultimate experience', NULL, NULL, NULL, 'Camp Sawi', 'szdfdzfzdfzd@gmail.com', '201-1000', 'Construction', NULL, NULL, NULL, 0),
-(2, 2, 'ian', 'narito', NULL, '2006-12-08', 'Male', 'xvjoidhfgxsyudvszumfvuxfsfvd', NULL, NULL, 'College', '[\"magnanakaw\"]', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0),
-(3, 3, 'Cyrus Jake ', 'Camalla', NULL, '2006-12-08', 'Male', 'SMART TOWER', NULL, NULL, 'College', '[\"lalakero\"]', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0);
+INSERT INTO `profiles` (`profile_id`, `user_id`, `first_name`, `last_name`, `phone`, `dob`, `gender`, `location`, `description`, `specialization`, `education_level`, `preferred_jobs`, `company_name`, `corporate_email`, `company_size`, `industry`, `raw_image`, `processed_image`, `voice_transcript`, `completion_pct`, `skills`) VALUES
+(1, 1, 'Cyrus Jake', 'Camalla', '09972947232', '2006-12-08', 'Male', 'pampanga', 'Leading boys and girls to their ultimate experience', NULL, NULL, NULL, 'Camp Sawi', 'szdfdzfzdfzd@gmail.com', '201-1000', 'Construction', NULL, NULL, NULL, 0, NULL),
+(2, 2, 'ian', 'narito', NULL, '2006-12-08', 'Male', 'xvjoidhfgxsyudvszumfvuxfsfvd', NULL, NULL, 'College', '[\"magnanakaw\"]', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL),
+(3, 3, 'Cyrus Jake ', 'Camalla', NULL, '2006-12-08', 'Male', 'SMART TOWER', NULL, NULL, 'College', '[\"lalakero\"]', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL);
 
 -- --------------------------------------------------------
 
@@ -217,6 +258,13 @@ ALTER TABLE `applications`
   ADD KEY `job_id` (`job_id`);
 
 --
+-- Indexes for table `interviews`
+--
+ALTER TABLE `interviews`
+  ADD PRIMARY KEY (`interview_id`),
+  ADD KEY `app_id` (`app_id`);
+
+--
 -- Indexes for table `jobs`
 --
 ALTER TABLE `jobs`
@@ -280,13 +328,19 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `applications`
 --
 ALTER TABLE `applications`
-  MODIFY `app_id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `app_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+
+--
+-- AUTO_INCREMENT for table `interviews`
+--
+ALTER TABLE `interviews`
+  MODIFY `interview_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
 -- AUTO_INCREMENT for table `jobs`
 --
 ALTER TABLE `jobs`
-  MODIFY `job_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `job_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `messages`
@@ -340,6 +394,12 @@ ALTER TABLE `users`
 ALTER TABLE `applications`
   ADD CONSTRAINT `applications_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`),
   ADD CONSTRAINT `applications_ibfk_2` FOREIGN KEY (`job_id`) REFERENCES `jobs` (`job_id`);
+
+--
+-- Constraints for table `interviews`
+--
+ALTER TABLE `interviews`
+  ADD CONSTRAINT `interviews_ibfk_1` FOREIGN KEY (`app_id`) REFERENCES `applications` (`app_id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `jobs`
