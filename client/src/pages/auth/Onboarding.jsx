@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, User, Briefcase, UploadCloud, 
@@ -36,6 +36,11 @@ const Onboarding = () => {
   const [faceVerified, setFaceVerified] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
+  // --- CALCULATE 18 YEARS AGO FOR BIRTHDATE ---
+  const maxDate = new Date();
+  maxDate.setFullYear(maxDate.getFullYear() - 18);
+  const maxDateString = maxDate.toISOString().split('T')[0];
+
   // --- Effects ---
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
@@ -49,8 +54,22 @@ const Onboarding = () => {
     setStep(prev => prev + 1);
   };
 
- const handleFinish = async () => {
-    // 1. Get the user from localStorage
+  // --- STRICT 18+ VALIDATION ---
+  const handleStep2Submit = (e) => {
+    e.preventDefault();
+    const dobToUse = role === 'seeker' ? seekerData.dob : hrData.dob;
+    const birthDate = new Date(dobToUse);
+    const ageInMilliseconds = new Date() - birthDate;
+    const ageInYears = ageInMilliseconds / (1000 * 60 * 60 * 24 * 365.25);
+    
+    if (ageInYears < 18) {
+      alert("You must be at least 18 years old to use CareerFlow.");
+      return;
+    }
+    handleNext();
+  };
+
+  const handleFinish = async () => {
     const savedUser = JSON.parse(localStorage.getItem('user'));
     
     if (!savedUser) {
@@ -59,7 +78,6 @@ const Onboarding = () => {
       return;
     }
 
-    // 2. Determine Payload
     const profilePayload = role === 'seeker' ? seekerData : hrData;
 
     try {
@@ -67,24 +85,18 @@ const Onboarding = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: savedUser.id || savedUser.user_id, // Safety: check both id and user_id
+          userId: savedUser.id || savedUser.user_id, 
           role: role,
           profileData: profilePayload
         }),
       });
 
       if (response.ok) {
-        // 3. Update the local session correctly
         const updatedUser = { ...savedUser, is_onboarded: 1 };
-        
-        // FIXED TYPO HERE: Removed the extra .json
         localStorage.setItem('user', JSON.stringify(updatedUser));
-
-        console.log("Onboarding successful, navigating...");
         
-        // 4. Force Redirect
         if (role === 'seeker') {
-          window.location.href = "/Dashboard"; // Using window.location forces a hard refresh to the dashboard
+          window.location.href = "/Dashboard"; 
         } else {
           window.location.href = "/hr-dashboard";
         }
@@ -98,15 +110,17 @@ const Onboarding = () => {
     }
   };
 
-  // OTP Logic
+  // --- OTP LOGIC ---
   const handleOtpChange = (index, value) => {
+    // Only allow numbers
+    if (value && !/^\d+$/.test(value)) return;
+
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
     if (index < 5 && value) document.getElementById(`otp-${index + 1}`).focus();
   };
 
-  // 2. ADD THIS: Auto-verify when 6th digit is entered
   useEffect(() => {
     const fullOtp = otp.join('');
     if (fullOtp.length === 6) {
@@ -114,34 +128,27 @@ const Onboarding = () => {
     }
   }, [otp]);
 
-  // 3. ADD THIS: The function that talks to your Node.js backend
+  // FIXED: Removed the stray HTML button causing syntax errors
   const verifyOtpRequest = async (code) => {
     const savedUser = JSON.parse(localStorage.getItem('user'));
-
-    <button 
-  onClick={sendOtpRequest} // <--- Link it here
-  className="w-full py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-blue-600 shadow-md transition-colors text-lg"
->
-  Send OTP Code
-</button>
     
     try {
       const response = await fetch('http://localhost:5000/api/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          userId: savedUser.id, 
+          userId: savedUser.id || savedUser.user_id, 
           code: code 
         }),
       });
 
       if (response.ok) {
-        alert("Phone Verified!");
-        setStep(prev => prev + 1); // Move to the next step automatically
+        alert("Phone Verified Successfully!");
+        setStep(prev => prev + 1); 
       } else {
         alert("Invalid code. Please try again.");
-        setOtp(['', '', '', '', '', '']); // Clear boxes on error
-        document.getElementById('otp-0').focus(); // Reset focus
+        setOtp(['', '', '', '', '', '']); 
+        document.getElementById('otp-0').focus(); 
       }
     } catch (error) {
       console.error("OTP Verification Error:", error);
@@ -150,8 +157,6 @@ const Onboarding = () => {
 
   const sendOtpRequest = async () => {
     const savedUser = JSON.parse(localStorage.getItem('user'));
-    
-    // Determine which number to use based on the role
     const phoneNumber = role === 'seeker' ? seekerData.phone : hrData.phone;
 
     if (!phoneNumber) {
@@ -164,16 +169,16 @@ const Onboarding = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          userId: savedUser.id, 
+          userId: savedUser.id || savedUser.user_id, 
           phoneNumber: phoneNumber 
         }),
       });
 
       if (response.ok) {
-        setOtpSent(true); // This reveals the 6-digit input boxes in your UI
-        alert("OTP sent! Check your terminal or database.");
+        setOtpSent(true); 
+        alert("OTP sent to your phone! (Check backend console for the code)");
       } else {
-        alert("Failed to send OTP. Check if the backend route exists.");
+        alert("Failed to send OTP.");
       }
     } catch (error) {
       console.error("SMS Error:", error);
@@ -202,7 +207,6 @@ const Onboarding = () => {
     setTimeout(() => {
       setIsFaceScanning(false);
       setFaceVerified(true);
-      // Both roles advance to step 6 after liveness check
       setTimeout(() => setStep(6), 1500);
     }, 3000);
   };
@@ -286,7 +290,7 @@ const Onboarding = () => {
             <button className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-bold border ${scrolled ? 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700' : 'border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200'} transition-colors`}>
               <Volume2 size={16} /> <span className="hidden sm:inline">Read aloud <span className="font-normal italic">/ Basahin</span></span>
             </button>
-            <button className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-bold transition-colors ${scrolled ? 'text-slate-600 hover:text-slate-900' : 'text-slate-300 hover:text-white'}`}>
+            <button onClick={() => navigate('/')} className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-bold transition-colors ${scrolled ? 'text-slate-600 hover:text-slate-900' : 'text-slate-300 hover:text-white'}`}>
                <LogOut size={16} /> Cancel
             </button>
           </div>
@@ -334,236 +338,192 @@ const Onboarding = () => {
               </div>
             )}
 
-            {/* =========================================
-                JOB SEEKER FLOW (Steps 2 - 8)
-            ========================================= */}
-            
-           {/* SEEKER STEP 2: PERSONAL */}
-{step === 2 && role === 'seeker' && (
-  <div className="animate-in fade-in slide-in-from-right-8 duration-500 m-auto w-full max-w-3xl">
-    <h2 className="text-4xl font-extrabold text-slate-900 mb-2">Personal Information</h2>
-    <p className="text-slate-500 mb-10 text-lg font-medium">Please provide your details. / <span className="italic">Ibigay ang iyong impormasyon.</span></p>
+            {/* SEEKER STEP 2: PERSONAL */}
+            {step === 2 && role === 'seeker' && (
+              <div className="animate-in fade-in slide-in-from-right-8 duration-500 m-auto w-full max-w-3xl">
+                <h2 className="text-4xl font-extrabold text-slate-900 mb-2">Personal Information</h2>
+                <p className="text-slate-500 mb-10 text-lg font-medium">Please provide your details. / <span className="italic">Ibigay ang iyong impormasyon.</span></p>
 
-    <form onSubmit={handleNext} className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-sm font-bold text-slate-700 mb-2">First Name <span className="italic text-slate-400 font-normal">/ Pangalan</span></label>
-          <input 
-            type="text" 
-            required 
-            value={seekerData.firstName} // ADDED
-            onChange={(e) => setSeekerData({...seekerData, firstName: e.target.value})} // ADDED
-            className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-lg" 
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-bold text-slate-700 mb-2">Last Name <span className="italic text-slate-400 font-normal">/ Apelyido</span></label>
-          <input 
-            type="text" 
-            required 
-            value={seekerData.lastName} // ADDED
-            onChange={(e) => setSeekerData({...seekerData, lastName: e.target.value})} // ADDED
-            className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-lg" 
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-bold text-slate-700 mb-2">Email Address</label>
-          <div className="relative">
-            <Mail size={20} className="absolute left-4 top-4 text-slate-400" />
-            <input 
-              type="email" 
-              required 
-              value={seekerData.email} // ADDED
-              onChange={(e) => setSeekerData({...seekerData, email: e.target.value})} // ADDED
-              className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-lg" 
-            />
-          </div>
-        </div>
-        <div>
-          <label className="block text-sm font-bold text-slate-700 mb-2">Birthdate <span className="italic text-slate-400 font-normal">/ Kaarawan</span></label>
-          <div className="relative">
-            <Calendar size={20} className="absolute left-4 top-4 text-slate-400" />
-            <input 
-              type="date" 
-              required 
-              value={seekerData.dob} // ADDED
-              onChange={(e) => setSeekerData({...seekerData, dob: e.target.value})} // ADDED
-              className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-slate-700 text-lg" 
-            />
-          </div>
-        </div>
-        <div className="md:col-span-2">
-          <label className="block text-sm font-bold text-slate-700 mb-2">Home Address <span className="italic text-slate-400 font-normal">/ Tirahan</span></label>
-          <div className="relative">
-            <MapPin size={20} className="absolute left-4 top-4 text-slate-400" />
-            <input 
-              type="text" 
-              required 
-              value={seekerData.address} // ADDED
-              onChange={(e) => setSeekerData({...seekerData, address: e.target.value})} // ADDED
-              className="w-full pl-12 pr-12 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-lg" 
-            />
-          </div>
-        </div>
-        <div className="md:col-span-2">
-          <label className="block text-sm font-bold text-slate-700 mb-3">Gender <span className="italic text-slate-400 font-normal">/ Kasarian</span></label>
-          <div className="flex gap-4">
-            {['Male', 'Female', 'Prefer not to say'].map(g => (
-              <label key={g} className={`flex-1 flex items-center justify-center p-4 border-2 rounded-xl cursor-pointer font-bold transition-all text-lg ${seekerData.gender === g ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                <input 
-                  type="radio" 
-                  name="gender" 
-                  className="hidden" 
-                  checked={seekerData.gender === g}
-                  onChange={() => setSeekerData({...seekerData, gender: g})} 
-                />
-                {g}
-              </label>
-            ))}
-          </div>
-        </div>
-      </div>
-      <div className="pt-8 mt-6 border-t border-slate-100 flex justify-end">
-        <button type="submit" className="px-10 py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-md text-lg">Next Step <ArrowRight size={20} className="inline ml-1"/></button>
-      </div>
-    </form>
-  </div>
-)}
+                {/* ADDED STRICT SUBMIT HANDLER */}
+                <form onSubmit={handleStep2Submit} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">First Name <span className="italic text-slate-400 font-normal">/ Pangalan</span></label>
+                      <input 
+                        type="text" 
+                        required 
+                        value={seekerData.firstName} 
+                        onChange={(e) => setSeekerData({...seekerData, firstName: e.target.value})} 
+                        className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-lg" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">Last Name <span className="italic text-slate-400 font-normal">/ Apelyido</span></label>
+                      <input 
+                        type="text" 
+                        required 
+                        value={seekerData.lastName} 
+                        onChange={(e) => setSeekerData({...seekerData, lastName: e.target.value})} 
+                        className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-lg" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">Email Address</label>
+                      <div className="relative">
+                        <Mail size={20} className="absolute left-4 top-4 text-slate-400" />
+                        <input 
+                          type="email" 
+                          required 
+                          value={seekerData.email} 
+                          onChange={(e) => setSeekerData({...seekerData, email: e.target.value})} 
+                          className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-lg" 
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">Birthdate <span className="italic text-slate-400 font-normal">/ Kaarawan</span></label>
+                      <div className="relative">
+                        <Calendar size={20} className="absolute left-4 top-4 text-slate-400" />
+                        <input 
+                          type="date" 
+                          required 
+                          max={maxDateString} // SETS THE MAX CALENDAR DATE TO 18 YEARS AGO
+                          value={seekerData.dob} 
+                          onChange={(e) => setSeekerData({...seekerData, dob: e.target.value})} 
+                          className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-slate-700 text-lg" 
+                        />
+                      </div>
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-bold text-slate-700 mb-2">Home Address <span className="italic text-slate-400 font-normal">/ Tirahan</span></label>
+                      <div className="relative">
+                        <MapPin size={20} className="absolute left-4 top-4 text-slate-400" />
+                        <input 
+                          type="text" 
+                          required 
+                          value={seekerData.address} 
+                          onChange={(e) => setSeekerData({...seekerData, address: e.target.value})} 
+                          className="w-full pl-12 pr-12 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-lg" 
+                        />
+                      </div>
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-bold text-slate-700 mb-3">Gender <span className="italic text-slate-400 font-normal">/ Kasarian</span></label>
+                      <div className="flex gap-4">
+                        {['Male', 'Female', 'Prefer not to say'].map(g => (
+                          <label key={g} className={`flex-1 flex items-center justify-center p-4 border-2 rounded-xl cursor-pointer font-bold transition-all text-lg ${seekerData.gender === g ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                            <input 
+                              type="radio" 
+                              name="gender" 
+                              className="hidden" 
+                              checked={seekerData.gender === g}
+                              onChange={() => setSeekerData({...seekerData, gender: g})} 
+                            />
+                            {g}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="pt-8 mt-6 border-t border-slate-100 flex justify-end">
+                    <button type="submit" className="px-10 py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-md text-lg">Next Step <ArrowRight size={20} className="inline ml-1"/></button>
+                  </div>
+                </form>
+              </div>
+            )}
 
             {/* SEEKER STEP 3: OTP */}
             {step === 3 && role === 'seeker' && (
               <div className="animate-in fade-in slide-in-from-right-8 duration-500 m-auto w-full max-w-md">
-                <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mb-8"><Smartphone size={40} /></div>
-                <h2 className="text-4xl font-extrabold text-slate-900 mb-3">Verify Phone</h2>
+                <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mb-8 mx-auto"><Smartphone size={40} /></div>
+                <h2 className="text-4xl font-extrabold text-slate-900 mb-3 text-center">Verify Phone</h2>
                 {!otpSent ? (
                   <div className="space-y-6 mt-8">
                     <div>
                       <label className="block text-sm font-bold text-slate-700 mb-2">Phone Number</label>
-                      <input type="tel" className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-bold text-xl tracking-wide" placeholder="0912 345 6789" />
+                      <input 
+                        type="tel" 
+                        value={seekerData.phone} 
+                        onChange={(e) => setSeekerData({...seekerData, phone: e.target.value})} 
+                        className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-bold text-xl tracking-wide" 
+                        placeholder="0912 345 6789" 
+                      />
                     </div>
-                    <button onClick={() => setOtpSent(true)} className="w-full py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-blue-600 shadow-md transition-colors text-lg">Send OTP Code</button>
+                    <button onClick={sendOtpRequest} className="w-full py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-blue-600 shadow-md transition-colors text-lg">
+                      Send OTP Code
+                    </button>
                   </div>
                 ) : (
                   <div className="space-y-8 animate-in fade-in mt-8">
+                    <p className="text-center text-slate-500 font-medium">Enter the 6-digit code sent to your phone.</p>
                     <div className="flex justify-between gap-3">
                       {otp.map((digit, i) => (
                         <input key={i} id={`otp-${i}`} type="text" maxLength="1" value={digit} onChange={(e) => handleOtpChange(i, e.target.value)}
                           className="w-14 h-16 text-center text-2xl font-extrabold bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600" />
                       ))}
                     </div>
-                    <button onClick={handleNext} className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-md transition-colors text-lg">Verify & Continue</button>
                   </div>
                 )}
               </div>
             )}
 
             {/* SEEKER STEP 4: QUALS & ID */}
-{step === 4 && role === 'seeker' && (
-  <div className="animate-in fade-in slide-in-from-right-8 duration-500 m-auto w-full max-w-3xl">
-    <h2 className="text-4xl font-extrabold text-slate-900 mb-2">Qualifications</h2>
-    <form onSubmit={handleNext} className="space-y-8 mt-8">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        
-        {/* Education Level - Added value and onChange */}
-        <div className="md:col-span-2">
-          <label className="block text-sm font-bold text-slate-700 mb-2">
-            Educational Attainment <span className="italic text-slate-400 font-normal">/ Edukasyon</span>
-          </label>
-          <select 
-            required 
-            value={seekerData.education} 
-            onChange={(e) => setSeekerData({...seekerData, education: e.target.value})}
-            className="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-bold text-slate-700 text-lg"
-          >
-            <option value="">Select Level...</option>
-            <option value="HighSchool">High School Graduate</option>
-            <option value="College">College Graduate</option>
-            <option value="Vocational">Vocational / TESDA</option>
-          </select>
-        </div>
+            {step === 4 && role === 'seeker' && (
+              <div className="animate-in fade-in slide-in-from-right-8 duration-500 m-auto w-full max-w-3xl">
+                <h2 className="text-4xl font-extrabold text-slate-900 mb-2">Qualifications</h2>
+                <form onSubmit={handleNext} className="space-y-8 mt-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-bold text-slate-700 mb-2">Educational Attainment <span className="italic text-slate-400 font-normal">/ Edukasyon</span></label>
+                      <select required value={seekerData.education} onChange={(e) => setSeekerData({...seekerData, education: e.target.value})}
+                        className="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-bold text-slate-700 text-lg">
+                        <option value="">Select Level...</option>
+                        <option value="HighSchool">High School Graduate</option>
+                        <option value="College">College Graduate</option>
+                        <option value="Vocational">Vocational / TESDA</option>
+                      </select>
+                    </div>
 
-        {/* Preferred Jobs */}
-        <div className="md:col-span-2">
-          <label className="block text-sm font-bold text-slate-700 mb-2">
-            Preferred Jobs <span className="italic text-slate-400 font-normal">/ Gustong Trabaho</span>
-          </label>
-          <div className="flex gap-3 mb-4">
-            <input 
-              type="text" 
-              value={seekerData.newJobInput} 
-              onChange={(e) => setSeekerData({...seekerData, newJobInput: e.target.value})} 
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  addPreferredJob(e);
-                }
-              }}
-              className="flex-1 px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-lg" 
-              placeholder="e.g. Delivery Driver..." 
-            />
-            <button 
-              type="button" // Important: type button stops form submission
-              onClick={addPreferredJob} 
-              className="px-8 py-4 bg-slate-900 text-white font-bold rounded-xl shrink-0 text-lg hover:bg-slate-800"
-            >
-              Add
-            </button>
-          </div>
-          
-          {/* Displaying Job Tags */}
-          <div className="flex flex-wrap gap-3 min-h-[48px]">
-            {seekerData.preferredJobs.map((job, idx) => (
-              <div key={idx} className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-xl text-base font-bold animate-in zoom-in duration-200">
-                {job} 
-                <button type="button" onClick={() => removeJob(job)} className="hover:text-red-500">
-                  <X size={16}/>
-                </button>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-bold text-slate-700 mb-2">Preferred Jobs <span className="italic text-slate-400 font-normal">/ Gustong Trabaho</span></label>
+                      <div className="flex gap-3 mb-4">
+                        <input type="text" value={seekerData.newJobInput} onChange={(e) => setSeekerData({...seekerData, newJobInput: e.target.value})} 
+                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addPreferredJob(e); } }}
+                          className="flex-1 px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-lg" 
+                          placeholder="e.g. Delivery Driver..." 
+                        />
+                        <button type="button" onClick={addPreferredJob} className="px-8 py-4 bg-slate-900 text-white font-bold rounded-xl shrink-0 text-lg hover:bg-slate-800">Add</button>
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-3 min-h-[48px]">
+                        {seekerData.preferredJobs.map((job, idx) => (
+                          <div key={idx} className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-xl text-base font-bold animate-in zoom-in duration-200">
+                            {job} <button type="button" onClick={() => removeJob(job)} className="hover:text-red-500"><X size={16}/></button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="md:col-span-2 bg-slate-50 border border-slate-200 rounded-3xl p-8">
+                      <h4 className="font-bold text-slate-900 mb-2 text-lg">Upload Valid ID <span className="italic text-slate-500 font-normal text-base">/ Mag-upload ng ID</span></h4>
+                      <div className={`border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center text-center transition-all relative cursor-pointer ${seekerData.idFile ? 'border-green-400 bg-green-50' : 'border-slate-300 bg-white hover:bg-blue-50'}`}>
+                        <input type="file" required accept="image/*" onChange={(e) => setSeekerData({...seekerData, idFile: e.target.files[0]})} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                        <UploadCloud size={40} className={seekerData.idFile ? "text-green-500 mb-4" : "text-slate-400 mb-4"} />
+                        <span className={`text-lg font-bold ${seekerData.idFile ? 'text-green-700' : 'text-blue-600'}`}>
+                          {seekerData.idFile ? `ID Selected: ${seekerData.idFile.name}` : 'Tap to upload your ID'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="pt-8 mt-6 border-t border-slate-100 flex justify-end">
+                    <button type="submit" disabled={!seekerData.education || seekerData.preferredJobs.length === 0 || !seekerData.idFile} 
+                      className="px-10 py-4 bg-blue-600 text-white text-lg font-bold rounded-xl disabled:opacity-50 disabled:bg-slate-300 transition-all hover:bg-blue-700 shadow-lg shadow-blue-600/20">
+                      Next Step <ArrowRight size={20} className="inline ml-1"/>
+                    </button>
+                  </div>
+                </form>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* File Upload UI */}
-        <div className="md:col-span-2 bg-slate-50 border border-slate-200 rounded-3xl p-8">
-          <h4 className="font-bold text-slate-900 mb-2 text-lg">
-            Upload Valid ID <span className="italic text-slate-500 font-normal text-base">/ Mag-upload ng ID</span>
-          </h4>
-          <div className={`border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center text-center transition-all relative cursor-pointer ${seekerData.idFile ? 'border-green-400 bg-green-50' : 'border-slate-300 bg-white hover:bg-blue-50'}`}>
-            <input 
-              type="file" 
-              required 
-              accept="image/*" 
-              onChange={(e) => setSeekerData({...seekerData, idFile: e.target.files[0]})} 
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
-            />
-            <UploadCloud size={40} className={seekerData.idFile ? "text-green-500 mb-4" : "text-slate-400 mb-4"} />
-            <span className={`text-lg font-bold ${seekerData.idFile ? 'text-green-700' : 'text-blue-600'}`}>
-              {seekerData.idFile ? `ID Selected: ${seekerData.idFile.name}` : 'Tap to upload your ID'}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div className="pt-8 mt-6 border-t border-slate-100 flex justify-end">
-        {/* Improved Button Logic: Must have Education, at least 1 Job, and an ID file */}
-        <button 
-          type="submit" 
-          disabled={!seekerData.education || seekerData.preferredJobs.length === 0 || !seekerData.idFile} 
-          className="px-10 py-4 bg-blue-600 text-white text-lg font-bold rounded-xl disabled:opacity-50 disabled:bg-slate-300 transition-all hover:bg-blue-700 shadow-lg shadow-blue-600/20"
-        >
-          Next Step <ArrowRight size={20} className="inline ml-1"/>
-        </button>
-      </div>
-    </form>
-  </div>
-)}
-
-            {/* SEEKER STEP 6, 7, 8 (Resume & Success) handled below... */}
-
-
-            {/* =========================================
-                HR / EMPLOYER FLOW (Steps 2 - 6)
-            ========================================= */}
+            )}
 
             {/* HR STEP 2: PERSONAL REP DETAILS */}
             {step === 2 && role === 'hr' && (
@@ -571,7 +531,8 @@ const Onboarding = () => {
                 <h2 className="text-4xl font-extrabold text-slate-900 mb-2">HR Representative Details</h2>
                 <p className="text-slate-500 mb-10 text-lg font-medium">Please provide your personal information as the account manager.</p>
 
-                <form onSubmit={handleNext} className="space-y-6">
+                {/* ADDED STRICT SUBMIT HANDLER */}
+                <form onSubmit={handleStep2Submit} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-sm font-bold text-slate-700 mb-2">First Name</label>
@@ -592,7 +553,14 @@ const Onboarding = () => {
                       <label className="block text-sm font-bold text-slate-700 mb-2">Birthdate</label>
                       <div className="relative">
                         <Calendar size={20} className="absolute left-4 top-4 text-slate-400" />
-                        <input type="date" required value={hrData.dob} onChange={e => setHrData({...hrData, dob: e.target.value})} className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-slate-700 text-lg" />
+                        <input 
+                          type="date" 
+                          required 
+                          max={maxDateString} // RESTRICTS TO 18+
+                          value={hrData.dob} 
+                          onChange={e => setHrData({...hrData, dob: e.target.value})} 
+                          className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-slate-700 text-lg" 
+                        />
                       </div>
                     </div>
                     <div className="md:col-span-2">
@@ -733,11 +701,6 @@ const Onboarding = () => {
                 </form>
               </div>
             )}
-
-
-            {/* =========================================
-                SHARED STEPS & SUCCESS SCREENS
-            ========================================= */}
 
             {/* SHARED STEP 5: LIVENESS CHECK */}
             {step === 5 && (

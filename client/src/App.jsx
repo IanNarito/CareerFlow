@@ -31,6 +31,7 @@ import AdminLogin from './pages/admin/AdminLogin';
 import Features from './pages/Features';
 import Contact from './pages/Contact';
 import FAQ from './pages/FAQ';
+import Resume from './pages/seeker/Resume';
 
 
 function App() {
@@ -45,6 +46,7 @@ function App() {
           <Route path="/faq" element={<FAQ />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/resume" element={<Resume />} />
           <Route path="/jobs" element={<JobList />} />
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/dashboard" element={<Dashboard />} />

@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Search, Briefcase, Bookmark, 
   MessageSquare, Mic, Settings as SettingsIcon, Bell, 
   User, Lock, Smartphone, Globe, Shield, Wifi,
-  ToggleLeft, ToggleRight, LogOut, AlertTriangle
+  ToggleLeft, ToggleRight, LogOut, AlertTriangle, FileText
 } from 'lucide-react';
 
 const Settings = () => {
@@ -48,9 +48,10 @@ const Settings = () => {
         <nav className="flex-1 px-4 py-8 space-y-2">
           <SidebarLink icon={<LayoutDashboard size={20}/>} label="Dashboard" to="/dashboard" />
           <SidebarLink icon={<Search size={20}/>} label="Find Jobs" to="/jobs" />
-          <SidebarLink icon={<Briefcase size={20}/>} label="My Applications" badge={2} to="/applications" />
+          <SidebarLink icon={<Briefcase size={20}/>} label="My Applications" to="/applications" />
           <SidebarLink icon={<Bookmark size={20}/>} label="Saved Jobs" to="/saved" />
-          <SidebarLink icon={<MessageSquare size={20}/>} label="Messages" badge={1} to="/messages" />
+          <SidebarLink icon={<MessageSquare size={20}/>} label="Messages" to="/messages" />
+          <SidebarLink icon={<FileText size={20}/>} label="My Resume" to="/resume" />
         </nav>
 
         <div className="p-4 border-t border-slate-800 space-y-2">

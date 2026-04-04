@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Search, MapPin, Briefcase, 
   Bookmark, Mic, Bell, Building2, User, 
   Clock, CheckCircle2, AlertCircle, Calendar, 
-  ChevronRight, FileText, Settings, MessageSquare
+  ChevronRight, FileText, Settings, MessageSquare, FileText
 } from 'lucide-react';
 
 const MyApplications = () => {
@@ -46,18 +46,19 @@ const MyApplications = () => {
       
       {/* --- SIDEBAR --- */}
       <aside className="hidden lg:flex w-64 flex-col bg-slate-900 text-slate-300 border-r border-slate-800 h-screen flex-shrink-0 z-20">
-        <div className="p-6 flex items-center gap-3 border-b border-slate-800">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-sm">
+        <Link to="/" className="p-6 flex items-center gap-3 border-b border-slate-800 group hover:bg-slate-800/50 transition-colors cursor-pointer">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-sm group-hover:scale-105 transition-transform">
             <LayoutDashboard size={18} />
           </div>
-          <h1 className="text-xl font-extrabold tracking-tight text-white">CareerFlow</h1>
-        </div>
+          <h1 className="text-xl font-extrabold tracking-tight text-white group-hover:text-blue-400 transition-colors">CareerFlow</h1>
+        </Link>
         <nav className="flex-1 px-4 py-8 space-y-2">
           <SidebarLink icon={<LayoutDashboard size={20}/>} label="Dashboard" to="/dashboard" />
           <SidebarLink icon={<Search size={20}/>} label="Find Jobs" to="/jobs" />
           <SidebarLink icon={<Briefcase size={20}/>} label="My Applications" active to="/applications" />
           <SidebarLink icon={<Bookmark size={20}/>} label="Saved Jobs" to="/saved" />
           <SidebarLink icon={<MessageSquare size={20}/>} label="Messages" to="/messages" />
+          <SidebarLink icon={<FileText size={20}/>} label="My Resume" to="/resume" />
         </nav>
         {/* --- Settings ONLY --- */}
         <div className="p-4 border-t border-slate-800 space-y-2">
