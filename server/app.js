@@ -144,6 +144,26 @@ app.post('/api/send-otp', async (req, res) => {
     }
 });
 
+app.post('/api/verify-otp', async (req, res) => {
+    const { userId, code } = req.body;
+    try {
+        const [rows] = await db.execute(
+            'SELECT * FROM otp_codes WHERE user_id = ? AND code = ? AND expires_at > NOW()', 
+            [userId, code]
+        );
+        
+        if (rows.length > 0) {
+            await db.execute('DELETE FROM otp_codes WHERE user_id = ?', [userId]);
+            res.json({ success: true, message: "OTP Verified" });
+        } else {
+            res.status(400).json({ error: "Invalid or expired OTP code." });
+        }
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Database Error" });
+    }
+});
+
 // --- NEW ROUTE: SAVE JOB TO DATABASE ---
 app.post('/api/jobs/create', async (req, res) => {
     const { hrId, companyName, jobData } = req.body;
@@ -633,55 +653,29 @@ app.post('/api/jobseeker/profile/save', async (req, res) => {
     }
 });
 
+
+// ==========================================
+// SECURE AI ROUTE (Calls gemini.js service)
+// ==========================================
 const { extractResumeInfo } = require('./gemini');
-
-app.post('/api/ai/extract-resume', async (req, res) => {
-    const { transcript } = req.body;
-
-    try {
-        const structuredData = await extractResumeInfo(transcript);
-        res.json(structuredData);
-    } catch (err) {
-        console.error("Gemini Error:", err);
-        res.status(500).json({ error: "AI processing failed" });
-    }
-});
-
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-
-const genAI = new GoogleGenerativeAI("YOUR_GEMINI_API_KEY");
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 app.post('/api/ai/extract-resume', async (req, res) => {
     const { transcript, step } = req.body;
 
-    // Custom prompt based on the interview step
-    let promptSuffix = "";
-    if (step === 0) promptSuffix = "Extract the 'role' and the 'company'.";
-    if (step === 1) promptSuffix = "Extract 2-3 professional 'responsibilities' as bullet points.";
-    if (step === 2) promptSuffix = "Extract a list of 3-5 technical 'skills' or tools mentioned.";
-
-    const prompt = `
-        Context: The user is a blue-collar worker in the Philippines providing voice answers for a resume. 
-        The answer might be in Taglish (Tagalog-English).
-        Transcript: "${transcript}"
-        Task: ${promptSuffix} Translate to professional English if needed. 
-        Return ONLY a raw JSON object with these keys: "role", "company", "responsibilities" (array), "skills" (array).
-    `;
+    if (!transcript) {
+        return res.status(400).json({ error: "Transcript is required" });
+    }
 
     try {
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        let text = response.text();
-        
-        // Clean the markdown if Gemini returns it with ```json blocks
-        const cleanedJson = text.replace(/```json|```/g, "").trim();
-        res.json(JSON.parse(cleanedJson));
+        // Send the audio text to our secure Gemini service
+        const structuredData = await extractResumeInfo(transcript, step);
+        res.json(structuredData);
     } catch (err) {
-        console.error("Gemini Error:", err);
-        res.status(500).json({ error: "Failed to parse AI response" });
+        console.error("Gemini Route Error:", err);
+        res.status(500).json({ error: "Failed to process transcript with AI." });
     }
 });
+
 
 // --- 1. GET SINGLE JOB DETAILS ---
 app.get('/api/jobs/:id', async (req, res) => {
@@ -933,5 +927,6 @@ app.put('/api/interviews/cancel/:interviewId', async (req, res) => {
         connection.release();
     }
 });
+
 // Important: Export the app so index.js can see it
 module.exports = app;

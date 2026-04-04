@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Search, MapPin, Briefcase, 
   Bookmark, Mic, Bell, Building2, User, 
   Clock, CheckCircle2, AlertCircle, Calendar, 
-  ChevronRight, FileText, Settings, MessageSquare, FileText
+  ChevronRight, FileText, Settings, MessageSquare
 } from 'lucide-react';
 
 const MyApplications = () => {
