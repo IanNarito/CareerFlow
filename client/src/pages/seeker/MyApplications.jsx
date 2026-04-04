@@ -44,7 +44,7 @@ const MyApplications = () => {
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex overflow-hidden">
       
-      {/* --- SIDEBAR (Design Unchanged) --- */}
+      {/* --- SIDEBAR --- */}
       <aside className="hidden lg:flex w-64 flex-col bg-slate-900 text-slate-300 border-r border-slate-800 h-screen flex-shrink-0 z-20">
         <div className="p-6 flex items-center gap-3 border-b border-slate-800">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-sm">
@@ -59,6 +59,11 @@ const MyApplications = () => {
           <SidebarLink icon={<Bookmark size={20}/>} label="Saved Jobs" to="/saved" />
           <SidebarLink icon={<MessageSquare size={20}/>} label="Messages" to="/messages" />
         </nav>
+        {/* --- Settings ONLY --- */}
+        <div className="p-4 border-t border-slate-800 space-y-2">
+          <SidebarLink icon={<Mic size={20}/>} label="Voice Profile" to="/voice-builder" />
+          <SidebarLink icon={<Settings size={20}/>} label="Settings" to="/settings" />
+        </div>
       </aside>
 
       <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
@@ -66,11 +71,11 @@ const MyApplications = () => {
           <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">My Applications</h2>
           <div className="flex items-center gap-3">
              <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-slate-900 leading-none">{currentUser?.first_name} {currentUser?.last_name}</p>
+                <p className="text-sm font-bold text-slate-900 leading-none">{currentUser?.username}</p>
                 <p className="text-xs text-slate-500 mt-1">Applicant</p>
               </div>
               <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 border border-blue-200 flex items-center justify-center font-bold">
-                {currentUser?.first_name?.[0]}{currentUser?.last_name?.[0]}
+                {currentUser?.username?.charAt(0).toUpperCase()}
               </div>
           </div>
         </header>
@@ -125,7 +130,6 @@ const MyApplications = () => {
 };
 
 const ApplicationCard = ({ app }) => {
-  // Map database status to UI theme
   const getTheme = (status) => {
     const s = status.toLowerCase();
     if (s === 'interview scheduled') return { color: 'blue', text: 'Interview Stage', icon: <Calendar size={16}/>, msg: "Action Required: Check Schedule" };

@@ -6,10 +6,10 @@ import {
   CheckCircle2, Building2, GraduationCap, ArrowRight,
   Info, Sparkles
 } from 'lucide-react';
+import Footer from '../../components/Footer'; // Added the Footer import!
 
 // --- MOCK DATA ---
 const JOB_DATA = {
-  id: "123",
   title: "Heavy Equipment Operator (Backhoe/Excavator)",
   company: "BuildRight Construction Corp.",
   logo: "https://images.unsplash.com/photo-1504307651254-35680f356f90?w=128&h=128&fit=crop&q=80",
@@ -45,6 +45,7 @@ const JOB_DATA = {
 };
 
 const JobDetails = () => {
+  const { id } = useParams(); // Now extracting the Job ID from the URL!
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [showApplyModal, setShowApplyModal] = useState(false);
@@ -66,7 +67,8 @@ const JobDetails = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-20">
+    // Removed pb-20 here so the footer sits flush
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
       
       {/* --- FLOATING NAVIGATION --- */}
       <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${scrolled ? 'bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm py-3' : 'bg-transparent py-5'}`}>
@@ -124,7 +126,8 @@ const JobDetails = () => {
       </div>
 
       {/* --- MAIN CONTENT & SIDEBAR --- */}
-      <main className="max-w-[1200px] mx-auto px-6 pt-16 sm:pt-20">
+      {/* Added pb-24 so content doesn't crash into the footer */}
+      <main className="max-w-[1200px] mx-auto px-6 pt-16 sm:pt-20 pb-24">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           
           {/* LEFT: Details (8 cols) */}
@@ -227,7 +230,7 @@ const JobDetails = () => {
                   </div>
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-slate-500 font-medium">Job ID</span>
-                    <span className="font-bold text-slate-900">#{JOB_DATA.id}</span>
+                    <span className="font-bold text-slate-900">#{id || "123"}</span>
                   </div>
                 </div>
 
@@ -265,6 +268,9 @@ const JobDetails = () => {
         </div>
       </main>
 
+      {/* --- REUSABLE FOOTER --- */}
+      <Footer />
+
       {/* --- SUCCESS MODAL --- */}
       {showApplyModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -287,7 +293,7 @@ const JobDetails = () => {
                 </div>
                 <h3 className="text-3xl font-extrabold text-slate-900 mb-3 tracking-tight">Application Sent!</h3>
                 <p className="text-slate-600 text-lg mb-8">
-                  Your profile has been successfully sent to <span className="font-bold text-slate-900">BuildRight Construction Corp</span>.
+                  Your profile has been successfully sent to <span className="font-bold text-slate-900">{JOB_DATA.company}</span>.
                 </p>
                 <div className="w-full space-y-3">
                   <button 

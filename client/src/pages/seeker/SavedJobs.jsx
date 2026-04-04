@@ -15,7 +15,6 @@ const SavedJobs = () => {
   const currentUser = JSON.parse(localStorage.getItem('user'));
   const userId = currentUser?.id || currentUser?.user_id;
 
-  // 1. Fetch Saved Jobs on Load
   useEffect(() => {
     const fetchSaved = async () => {
       try {
@@ -31,7 +30,6 @@ const SavedJobs = () => {
     if (userId) fetchSaved();
   }, [userId]);
 
-  // 2. Handle DB Removal
   const handleRemove = async (jobId) => {
     try {
       const res = await fetch(`http://localhost:5000/api/saved-jobs/${userId}/${jobId}`, {
@@ -47,7 +45,8 @@ const SavedJobs = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex overflow-hidden">
-      {/* --- SIDEBAR (Keep exactly as yours) --- */}
+      
+      {/* --- SIDEBAR --- */}
       <aside className="hidden lg:flex w-64 flex-col bg-slate-900 text-slate-300 border-r border-slate-800 h-screen flex-shrink-0 z-20">
         <div className="p-6 flex items-center gap-3 border-b border-slate-800">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-sm">
@@ -62,6 +61,11 @@ const SavedJobs = () => {
           <SidebarLink icon={<Bookmark size={20}/>} label="Saved Jobs" active to="/saved" />
           <SidebarLink icon={<MessageSquare size={20}/>} label="Messages" to="/messages" />
         </nav>
+        {/* --- Settings ONLY --- */}
+        <div className="p-4 border-t border-slate-800 space-y-2">
+          <SidebarLink icon={<Mic size={20}/>} label="Voice Profile" to="/voice-builder" />
+          <SidebarLink icon={<Settings size={20}/>} label="Settings" to="/settings" />
+        </div>
       </aside>
 
       <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
@@ -69,11 +73,11 @@ const SavedJobs = () => {
           <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight hidden sm:block">Saved Jobs</h2>
           <div className="flex items-center gap-3">
              <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-slate-900 leading-none">{currentUser?.first_name}</p>
+                <p className="text-sm font-bold text-slate-900 leading-none">{currentUser?.username}</p>
                 <p className="text-xs text-slate-500 mt-1">Applicant</p>
               </div>
               <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 border border-blue-200 flex items-center justify-center font-bold">
-                {currentUser?.first_name?.[0]}
+                {currentUser?.username?.charAt(0).toUpperCase()}
               </div>
           </div>
         </header>
@@ -144,7 +148,6 @@ const SavedJobs = () => {
   );
 };
 
-// SidebarLink helper component...
 const SidebarLink = ({ icon, label, active, to = "#" }) => (
     <Link to={to} className={`flex items-center justify-between px-4 py-3 rounded-xl transition-colors font-bold ${active ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
       <div className="flex items-center gap-3">{icon}<span>{label}</span></div>

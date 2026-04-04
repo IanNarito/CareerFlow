@@ -11,6 +11,9 @@ const Settings = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('Account');
   
+  // Get current logged-in user to fix the hardcoded name issue
+  const currentUser = JSON.parse(localStorage.getItem('user'));
+
   // Mock Toggle States tailored for Blue-Collar Needs
   const [toggles, setToggles] = useState({
     smsAlerts: true,
@@ -22,6 +25,12 @@ const Settings = () => {
 
   const handleToggle = (key) => {
     setToggles(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  // --- ADDED LOGOUT HANDLER ---
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    navigate('/login');
   };
 
   return (
@@ -69,11 +78,14 @@ const Settings = () => {
             </button>
             <div className="h-8 w-px bg-slate-200 hidden sm:block"></div>
             <div className="flex items-center gap-3 cursor-pointer pl-1 sm:pl-2">
+              {/* --- DYNAMIC NAME RENDER --- */}
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-slate-900 leading-none">Ciel A. Valencia</p>
+                <p className="text-sm font-bold text-slate-900 leading-none">{currentUser?.username}</p>
                 <p className="text-xs text-slate-500 mt-1">Applicant</p>
               </div>
-              <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 border border-blue-200 flex items-center justify-center font-bold">CV</div>
+              <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 border border-blue-200 flex items-center justify-center font-bold">
+                {currentUser?.username?.charAt(0).toUpperCase()}
+              </div>
             </div>
           </div>
         </header>
@@ -100,7 +112,8 @@ const Settings = () => {
                 />
                 
                 <div className="pt-8 mt-8 border-t border-slate-200">
-                  <button onClick={() => navigate('/')} className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-xl font-bold transition-colors">
+                  {/* --- FIXED SIGNOUT BUTTON --- */}
+                  <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-xl font-bold transition-colors">
                     <LogOut size={18} /> Sign Out
                   </button>
                 </div>
@@ -116,7 +129,9 @@ const Settings = () => {
                       <h3 className="text-xl font-bold text-slate-900 mb-6 pb-4 border-b border-slate-100">Personal Details</h3>
                       
                       <div className="flex flex-col sm:flex-row sm:items-center gap-6 mb-8">
-                        <div className="w-20 h-20 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-2xl shrink-0">CV</div>
+                        <div className="w-20 h-20 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-2xl shrink-0">
+                          {currentUser?.username?.charAt(0).toUpperCase()}
+                        </div>
                         <div>
                           <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 font-bold rounded-lg hover:bg-slate-50 transition-colors text-sm mb-2 w-full sm:w-auto">Change Photo</button>
                           <p className="text-xs text-slate-500 text-center sm:text-left">Clear face photos get 40% more employer replies.</p>
@@ -126,15 +141,17 @@ const Settings = () => {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                         <div className="sm:col-span-2">
                           <label className="block text-sm font-bold text-slate-700 mb-2">Full Name</label>
-                          <input type="text" defaultValue="Ciel A. Valencia" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-slate-900" />
+                          {/* Dynamic Name Input */}
+                          <input type="text" defaultValue={currentUser?.username} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-slate-900" />
                         </div>
                         <div>
                           <label className="block text-sm font-bold text-slate-700 mb-2">Mobile Number (Primary)</label>
-                          <input type="tel" defaultValue="0912 345 6789" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-slate-900" />
+                          <input type="tel" placeholder="0912 345 6789" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-slate-900" />
                         </div>
                         <div>
                           <label className="block text-sm font-bold text-slate-700 mb-2">Email Address (Optional)</label>
-                          <input type="email" placeholder="e.g. ciel@gmail.com" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-slate-900" />
+                          {/* Dynamic Email Input */}
+                          <input type="email" defaultValue={currentUser?.email} placeholder="e.g. email@gmail.com" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 font-medium text-slate-900" />
                         </div>
                         <div className="sm:col-span-2 border-t border-slate-100 pt-6 mt-2">
                           <label className="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">

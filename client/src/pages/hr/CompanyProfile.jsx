@@ -98,6 +98,9 @@ const CompanyProfile = () => {
           <SidebarLink icon={<CalendarIcon size={20}/>} label="Interviews" to="/hr/interviews" />
           <SidebarLink icon={<Building2 size={20}/>} label="Company Profile" active to="/hr/profile" />
         </nav>
+        <div className="p-4 border-t border-slate-800">
+          <SidebarLink icon={<Settings size={20}/>} label="Settings" to="/hr/settings"/>
+        </div>
       </aside>
 
       <div className="flex-1 flex flex-col h-screen overflow-hidden relative">

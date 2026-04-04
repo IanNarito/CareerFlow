@@ -49,8 +49,6 @@ const Dashboard = () => {
     fetchDashboardData();
   }, [navigate]);
 
-  const handleLogout = () => { localStorage.removeItem('user'); navigate('/login'); };
-
   if (!user || loading) return <div className="min-h-screen flex items-center justify-center font-bold text-slate-400 italic">Syncing your CareerFlow...</div>;
 
   return (
@@ -69,9 +67,10 @@ const Dashboard = () => {
           <SidebarLink icon={<Bookmark size={20}/>} label="Saved Jobs" to="/saved" />
           <SidebarLink icon={<MessageSquare size={20}/>} label="Messages" to="/messages" />
         </nav>
+        {/* --- Settings ONLY (Matches other dashboards) --- */}
         <div className="p-4 border-t border-slate-800 space-y-2">
           <SidebarLink icon={<Mic size={20}/>} label="Voice Profile" to="/voice-builder" />
-          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-bold text-slate-400 hover:bg-red-900/20 hover:text-red-400"><Settings size={20}/> Logout</button>
+          <SidebarLink icon={<Settings size={20}/>} label="Settings" to="/settings" />
         </div>
       </aside>
 

@@ -4,17 +4,25 @@ import {
   LayoutDashboard, ChevronRight, Search, Bell, 
   Users, Calendar, ArrowRight, Play, 
   Sparkles, CheckCircle2, Mic, ShieldCheck,
-  Twitter, Linkedin, Youtube 
+  Twitter, Linkedin, Youtube, User as UserIcon
 } from 'lucide-react';
 import Footer from '../components/Footer';
 
 const Home = () => {
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [user, setUser] = useState(null); // <-- ADDED AUTH STATE
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
+    
+    // <-- ADDED AUTH CHECK LOGIC -->
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
+    }
+
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -34,7 +42,11 @@ const Home = () => {
             
             <div className={`hidden md:flex gap-8 text-sm font-semibold items-center ${scrolled ? 'text-slate-600' : 'text-slate-200'}`}>
               <Link to="/jobs" className={`transition-colors ${scrolled ? 'hover:text-blue-600' : 'hover:text-white'}`}>Job listings</Link>
-              <Link to="/dashboard" className={`transition-colors ${scrolled ? 'hover:text-blue-600' : 'hover:text-white'}`}>My applications</Link>
+              
+              {/* Dynamically route "My applications" */}
+              <Link to={user ? (user.role === 'hr' ? '/hr-dashboard' : '/dashboard') : '/login'} className={`transition-colors ${scrolled ? 'hover:text-blue-600' : 'hover:text-white'}`}>
+                My applications
+              </Link>
               
               <div className="relative">
                 <button 
@@ -51,16 +63,17 @@ const Home = () => {
                       <div className="p-6">
                         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-5">For Job Seekers</h3>
                         <div className="space-y-2">
-                          <MegaMenuItem icon={<Mic size={18}/>} title="Voice Profile Builder" desc="Apply without typing" />
-                          <MegaMenuItem icon={<Search size={18}/>} title="Smart Job Matching" desc="Personalized recommendations" />
-                          <MegaMenuItem icon={<Bell size={18}/>} title="Application Tracking" desc="Real-time status updates" />
+                          {/* <-- DYNAMIC TOOL ROUTES: Go to page if logged in, else go to /login --> */}
+                          <MegaMenuItem icon={<Mic size={18}/>} title="Voice Profile Builder" desc="Apply without typing" to={user ? "/voice-builder" : "/login"} />
+                          <MegaMenuItem icon={<Search size={18}/>} title="Smart Job Matching" desc="Personalized recommendations" to={user ? "/jobs" : "/login"} />
+                          <MegaMenuItem icon={<Bell size={18}/>} title="Application Tracking" desc="Real-time status updates" to={user ? "/dashboard" : "/login"} />
                         </div>
                       </div>
                       <div className="p-6 bg-white rounded-xl shadow-sm border border-slate-100">
                         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-5">For Employers</h3>
                         <div className="space-y-2">
-                          <MegaMenuItem icon={<Users size={18}/>} title="Candidate Pipeline" desc="Manage incoming applications" />
-                          <MegaMenuItem icon={<Calendar size={18}/>} title="Interview Scheduling" desc="Automated calendar syncing" />
+                          <MegaMenuItem icon={<Users size={18}/>} title="Candidate Pipeline" desc="Manage incoming applications" to={user ? "/hr-dashboard" : "/login"} />
+                          <MegaMenuItem icon={<Calendar size={18}/>} title="Interview Scheduling" desc="Automated calendar syncing" to={user ? "/hr-dashboard" : "/login"} />
                         </div>
                       </div>
                     </div>
@@ -70,13 +83,22 @@ const Home = () => {
             </div>
           </div>
 
+          {/* <-- DYNAMIC TOP RIGHT BUTTONS --> */}
           <div className="flex gap-4 items-center">
-            <Link to="/login" className={`hidden sm:block text-sm font-semibold transition-colors ${scrolled ? 'text-slate-600 hover:text-slate-900' : 'text-slate-300 hover:text-white'}`}>
-              Sign in
-            </Link>
-            <Link to="/onboarding" className="px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-md shadow-blue-900/20 transition-all hover:-translate-y-0.5">
-              Start for free
-            </Link>
+            {user ? (
+              <Link to={user.role === 'hr' ? '/hr-dashboard' : '/dashboard'} className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-md shadow-blue-900/20 transition-all hover:-translate-y-0.5">
+                <UserIcon size={16} /> Go to Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link to="/login" className={`hidden sm:block text-sm font-semibold transition-colors ${scrolled ? 'text-slate-600 hover:text-slate-900' : 'text-slate-300 hover:text-white'}`}>
+                  Sign in
+                </Link>
+                <Link to="/register" className="px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-md shadow-blue-900/20 transition-all hover:-translate-y-0.5">
+                  Start for free
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </nav>
@@ -109,9 +131,15 @@ const Home = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Link to="/onboarding" className="px-8 py-3.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/25 hover:-translate-y-0.5 flex items-center justify-center gap-2">
-              Create free account <ArrowRight size={18} />
-            </Link>
+            {user ? (
+               <Link to={user.role === 'hr' ? '/hr-dashboard' : '/dashboard'} className="px-8 py-3.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/25 hover:-translate-y-0.5 flex items-center justify-center gap-2">
+                 Access Dashboard <ArrowRight size={18} />
+               </Link>
+            ) : (
+               <Link to="/register" className="px-8 py-3.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/25 hover:-translate-y-0.5 flex items-center justify-center gap-2">
+                 Create free account <ArrowRight size={18} />
+               </Link>
+            )}
             <Link to="/about" className="px-8 py-3.5 bg-slate-800/50 backdrop-blur-md text-white font-semibold border border-slate-700 rounded-xl hover:bg-slate-800 transition-all shadow-sm flex items-center justify-center gap-2 group">
               <Play size={18} className="text-slate-400 group-hover:text-blue-400 transition-colors" /> See how it works
             </Link>
@@ -132,7 +160,7 @@ const Home = () => {
             tag="Voice First"
             title="Speak Your Resume"
             desc="No need to type. Create a professional profile by simply answering questions using your device's microphone."
-            link="/voice-builder"
+            link={user ? "/voice-builder" : "/login"} // Dynamic link
           />
           <FeatureCard 
             icon={<Search size={24} />}
@@ -190,7 +218,7 @@ const Home = () => {
                 <li className="flex items-center gap-3 text-slate-700 font-medium"><CheckCircle2 className="text-blue-500" size={20}/> Secure Liveness Check verification</li>
                 <li className="flex items-center gap-3 text-slate-700 font-medium"><CheckCircle2 className="text-blue-500" size={20}/> Text-to-Speech support for reading</li>
               </ul>
-              <Link to="/onboarding" className="inline-flex items-center gap-2 text-blue-600 font-bold hover:text-blue-700 group text-lg">
+              <Link to={user ? "/jobs" : "/register"} className="inline-flex items-center gap-2 text-blue-600 font-bold hover:text-blue-700 group text-lg">
                 Start applying faster <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
               </Link>
             </div>
@@ -234,9 +262,15 @@ const Home = () => {
           <h2 className="text-4xl lg:text-5xl font-extrabold text-slate-900 mb-6 tracking-tight">Ready to transform your career path?</h2>
           <p className="text-xl text-slate-500 mb-10 max-w-2xl mx-auto">Join thousands of professionals and modern HR teams building the future of work on CareerFlow.</p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Link to="/onboarding" className="px-10 py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/25 hover:-translate-y-0.5 text-lg">
-              Get started for free
-            </Link>
+             {user ? (
+               <Link to={user.role === 'hr' ? '/hr-dashboard' : '/dashboard'} className="px-10 py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/25 hover:-translate-y-0.5 text-lg">
+                 Access Dashboard
+               </Link>
+             ) : (
+               <Link to="/onboarding" className="px-10 py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/25 hover:-translate-y-0.5 text-lg">
+                 Get started for free
+               </Link>
+             )}
             <Link to="/contact" className="px-10 py-4 bg-white text-slate-700 font-bold border border-slate-200 rounded-xl hover:bg-slate-50 transition-all shadow-sm text-lg">
               Talk to sales
             </Link>
@@ -253,8 +287,9 @@ const Home = () => {
 
 /* --- HELPER COMPONENTS --- */
 
-const MegaMenuItem = ({ icon, title, desc }) => (
-  <Link to="#" className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-100/80 transition-colors group">
+// <-- UPDATED MegaMenuItem to Accept a 'to' prop -->
+const MegaMenuItem = ({ icon, title, desc, to }) => (
+  <Link to={to} className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-100/80 transition-colors group">
     <div className="mt-0.5 w-8 h-8 rounded-md bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-500 group-hover:text-blue-600 group-hover:border-blue-200 transition-colors">
       {icon}
     </div>

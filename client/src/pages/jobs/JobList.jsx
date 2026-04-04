@@ -4,7 +4,8 @@ import {
   LayoutDashboard, Search, MapPin, Briefcase, DollarSign, 
   Bookmark, Filter, CheckCircle2, Mic, Volume2, 
   HardHat, Truck, Wrench, Zap, Building2, ChevronDown, 
-  ShieldCheck, Leaf, Factory, Flame, Tractor, Droplet, Sparkles
+  ShieldCheck, Leaf, Factory, Flame, Tractor, Droplet, Sparkles,
+  User as UserIcon
 } from 'lucide-react';
 
 // --- DATA: PHILIPPINE BLUE-COLLAR ROLES ---
@@ -61,10 +62,19 @@ const JOB_LISTINGS = [
 
 const JobList = () => {
   const [scrolled, setScrolled] = useState(false);
+  const [user, setUser] = useState(null); // <-- ADDED USER STATE
 
   useEffect(() => {
+    // Scroll logic
     const handleScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener('scroll', handleScroll);
+    
+    // <-- ADDED AUTH CHECK LOGIC -->
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
+    }
+
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -82,11 +92,17 @@ const JobList = () => {
               <h1 className={`text-xl font-extrabold tracking-tight ${scrolled ? 'text-slate-900' : 'text-white'}`}>CareerFlow</h1>
             </Link>
             
+            {/* <-- DYNAMIC NAVIGATION BASED ON AUTH STATE --> */}
             <div className={`hidden lg:flex gap-8 text-sm font-semibold ${scrolled ? 'text-slate-600' : 'text-slate-300'}`}>
               <Link to="/jobs" className={`${scrolled ? 'text-blue-600' : 'text-white'} flex items-center gap-2`}>Job Listings</Link>
-              <Link to="/dashboard" className="hover:text-blue-500 transition-colors">My Applications</Link>
-              <Link to="/dashboard" className="hover:text-blue-500 transition-colors">Interviews</Link>
-              <Link to="/dashboard" className="hover:text-blue-500 transition-colors">Resume Builder</Link>
+              
+              {user && (
+                <>
+                  <Link to="/dashboard" className="hover:text-blue-500 transition-colors">My Applications</Link>
+                  <Link to="/dashboard" className="hover:text-blue-500 transition-colors">Interviews</Link>
+                  <Link to="/voice-builder" className="hover:text-blue-500 transition-colors">Resume Builder</Link>
+                </>
+              )}
             </div>
           </div>
 
@@ -94,9 +110,17 @@ const JobList = () => {
             <button className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-bold border ${scrolled ? 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700' : 'border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200'} transition-colors`}>
               <Volume2 size={16} /> <span className="hidden sm:inline">Screen Reader</span>
             </button>
-            <Link to="/login" className="px-5 py-2 text-sm font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm transition-all">
-              Log in
-            </Link>
+            
+            {/* <-- DYNAMIC LOGIN / DASHBOARD BUTTON --> */}
+            {user ? (
+              <Link to={user.role === 'hr' ? '/hr-dashboard' : '/dashboard'} className="flex items-center gap-2 px-5 py-2 text-sm font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm transition-all">
+                <UserIcon size={16} /> Dashboard
+              </Link>
+            ) : (
+              <Link to="/login" className="px-5 py-2 text-sm font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm transition-all">
+                Log in
+              </Link>
+            )}
           </div>
         </div>
       </nav>
