@@ -586,6 +586,21 @@ app.get('/api/saved-jobs/:userId', async (req, res) => {
     }
 });
 
+// --- SAVE A JOB ---
+app.post('/api/saved-jobs', async (req, res) => {
+    const { user_id, job_id } = req.body;
+    try {
+        // Prevent saving duplicates
+        const [existing] = await db.execute('SELECT * FROM saved_jobs WHERE user_id = ? AND job_id = ?', [user_id, job_id]);
+        if (existing.length > 0) return res.json({ success: true, message: "Already saved" });
+        
+        await db.execute('INSERT INTO saved_jobs (user_id, job_id) VALUES (?, ?)', [user_id, job_id]);
+        res.json({ success: true, message: "Job saved!" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // --- REMOVE A SAVED JOB ---
 app.delete('/api/saved-jobs/:userId/:jobId', async (req, res) => {
     const { userId, jobId } = req.params;

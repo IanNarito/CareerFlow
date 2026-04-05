@@ -142,7 +142,8 @@ const Resume = () => {
                   {profileData?.description && (
                     <section>
                       <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 border-b-2 border-slate-200 pb-2 mb-4 print:border-black">Professional Summary</h3>
-                      <p className="text-base leading-relaxed font-medium text-slate-700 print:text-black">
+                      {/* FIXED: Added whitespace-pre-line to properly render the \n\n breaks from the AI */}
+                      <p className="text-base leading-relaxed font-medium text-slate-700 print:text-black whitespace-pre-line">
                         {profileData.description}
                       </p>
                     </section>

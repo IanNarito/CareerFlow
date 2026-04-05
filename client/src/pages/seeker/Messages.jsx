@@ -23,6 +23,10 @@ const Messages = () => {
   const currentUser = JSON.parse(localStorage.getItem('user'));
   const userId = currentUser?.id || currentUser?.user_id;
 
+  // Safe fallback for user's name
+  const safeUserName = currentUser?.username || "Applicant";
+  const userInitial = safeUserName.charAt(0).toUpperCase();
+
   // 1. Fetch Inbox (Conversation List)
   useEffect(() => {
     const fetchInbox = async () => {
@@ -32,7 +36,7 @@ const Messages = () => {
         setConversations(data);
         // Auto-select first chat on desktop if available
         if (data.length > 0 && !activeChatId) {
-          setActiveChatId(data[0].id);
+          setActiveChatId(data[0].user_id || data[0].id); // Safe check
         }
       } catch (err) {
         console.error("Inbox Load Error:", err);
@@ -41,7 +45,7 @@ const Messages = () => {
       }
     };
     fetchInbox();
-  }, [userId]);
+  }, [userId, activeChatId]);
 
   // 2. Fetch Message History when a chat is selected
   useEffect(() => {
@@ -57,7 +61,6 @@ const Messages = () => {
       };
       fetchHistory();
       
-      // Optional: Set up an interval to poll for new messages every 5 seconds
       const interval = setInterval(fetchHistory, 5000);
       return () => clearInterval(interval);
     }
@@ -70,7 +73,8 @@ const Messages = () => {
     }
   }, [messages]);
 
-  const activeChat = conversations.find(c => c.id === activeChatId);
+  // Find active chat safely
+  const activeChat = conversations.find(c => (c.user_id || c.id) === activeChatId);
 
   const handleSelectChat = (id) => {
     setActiveChatId(id);
@@ -149,11 +153,12 @@ const Messages = () => {
             <div className="h-8 w-px bg-slate-200 hidden sm:block"></div>
             <div className="flex items-center gap-3 cursor-pointer pl-1 sm:pl-2">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-slate-900 leading-none">{currentUser?.first_name} {currentUser?.last_name}</p>
+                {/* FIXED: Uses Username instead of First/Last Name */}
+                <p className="text-sm font-bold text-slate-900 leading-none">{safeUserName}</p>
                 <p className="text-xs text-slate-500 mt-1">Applicant</p>
               </div>
               <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 border border-blue-200 flex items-center justify-center font-bold">
-                {currentUser?.first_name?.[0]}{currentUser?.last_name?.[0]}
+                {userInitial}
               </div>
             </div>
           </div>
@@ -180,30 +185,35 @@ const Messages = () => {
               ) : conversations.length === 0 ? (
                 <div className="p-8 text-center text-slate-400 font-medium">No messages yet.</div>
               ) : (
-                conversations.map(chat => (
-                  <button 
-                    key={chat.id}
-                    onClick={() => handleSelectChat(chat.id)}
-                    className={`w-full text-left p-4 border-b border-slate-100 transition-colors flex items-start gap-4 ${activeChatId === chat.id ? 'bg-blue-50/50 relative' : 'hover:bg-slate-100 bg-white'}`}
-                  >
-                    {activeChatId === chat.id && <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-600"></div>}
-                    <div className="relative shrink-0">
-                      <div className="w-12 h-12 rounded-xl border border-slate-200 flex items-center justify-center bg-slate-200 text-slate-600 font-black">
-                        {chat.company?.[0]}
+                conversations.map(chat => {
+                  const chatId = chat.user_id || chat.id;
+                  const displayCompany = chat.company_name || chat.company || "Unknown Company";
+                  
+                  return (
+                    <button 
+                      key={chatId}
+                      onClick={() => handleSelectChat(chatId)}
+                      className={`w-full text-left p-4 border-b border-slate-100 transition-colors flex items-start gap-4 ${activeChatId === chatId ? 'bg-blue-50/50 relative' : 'hover:bg-slate-100 bg-white'}`}
+                    >
+                      {activeChatId === chatId && <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-600"></div>}
+                      <div className="relative shrink-0">
+                        <div className="w-12 h-12 rounded-xl border border-slate-200 flex items-center justify-center bg-slate-200 text-slate-600 font-black uppercase">
+                          {displayCompany.charAt(0)}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-center mb-0.5">
-                        <h4 className="font-bold text-slate-900 truncate pr-2">{chat.company}</h4>
-                        <span className="text-[10px] font-bold text-slate-400 shrink-0">
-                          {chat.time ? new Date(chat.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                        </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-center mb-0.5">
+                          <h4 className="font-bold text-slate-900 truncate pr-2">{displayCompany}</h4>
+                          <span className="text-[10px] font-bold text-slate-400 shrink-0">
+                            {chat.time ? new Date(chat.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                          </span>
+                        </div>
+                        <p className="text-xs font-bold text-blue-600 truncate mb-1">{chat.role || "Job Inquiry"}</p>
+                        <p className="text-sm truncate text-slate-500 font-medium">{chat.lastMessage || "Say hello!"}</p>
                       </div>
-                      <p className="text-xs font-bold text-blue-600 truncate mb-1">{chat.role}</p>
-                      <p className="text-sm truncate text-slate-500 font-medium">{chat.lastMessage}</p>
-                    </div>
-                  </button>
-                ))
+                    </button>
+                  );
+                })
               )}
             </div>
           </div>
@@ -215,10 +225,16 @@ const Messages = () => {
                 <div className="h-20 px-4 sm:px-6 border-b border-slate-200 bg-white flex items-center justify-between shrink-0 shadow-sm z-10">
                   <div className="flex items-center gap-4">
                     <button onClick={() => setShowChatOnMobile(false)} className="sm:hidden p-2 -ml-2 text-slate-500 hover:text-slate-900"><ArrowLeft size={24} /></button>
-                    <div className="w-10 h-10 rounded-lg border border-slate-200 flex items-center justify-center bg-indigo-600 text-white font-bold hidden sm:flex">{activeChat.company[0]}</div>
+                    {/* FIXED: Safe extraction of company name initial */}
+                    <div className="w-10 h-10 rounded-lg border border-slate-200 flex items-center justify-center bg-indigo-600 text-white font-bold hidden sm:flex uppercase">
+                      {(activeChat.company_name || activeChat.company || "C").charAt(0)}
+                    </div>
                     <div>
-                      <h3 className="font-bold text-slate-900 leading-tight">{activeChat.company}</h3>
-                      <p className="text-xs font-bold text-blue-600 flex items-center gap-1 mt-0.5"><Briefcase size={12}/> {activeChat.role}</p>
+                      {/* FIXED: Safe extraction of company name */}
+                      <h3 className="font-bold text-slate-900 leading-tight">
+                        {activeChat.company_name || activeChat.company || "Unknown Company"}
+                      </h3>
+                      <p className="text-xs font-bold text-blue-600 flex items-center gap-1 mt-0.5"><Briefcase size={12}/> {activeChat.role || "Job Inquiry"}</p>
                     </div>
                   </div>
                 </div>
