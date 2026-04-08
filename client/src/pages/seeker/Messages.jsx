@@ -27,54 +27,74 @@ const Messages = () => {
   const safeUserName = currentUser?.username || "Applicant";
   const userInitial = safeUserName.charAt(0).toUpperCase();
 
-  // 1. Fetch Inbox (Conversation List)
-  useEffect(() => {
-    const fetchInbox = async () => {
-      try {
-        const res = await fetch(`http://localhost:5000/api/messages/inbox/${userId}`);
-        const data = await res.json();
-        setConversations(data);
-        // Auto-select first chat on desktop if available
-        if (data.length > 0 && !activeChatId) {
-          setActiveChatId(data[0].user_id || data[0].id); // Safe check
-        }
-      } catch (err) {
-        console.error("Inbox Load Error:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchInbox();
-  }, [userId, activeChatId]);
-
-  // 2. Fetch Message History when a chat is selected
-  useEffect(() => {
-    if (activeChatId) {
-      const fetchHistory = async () => {
-        try {
-          const res = await fetch(`http://localhost:5000/api/messages/history/${userId}/${activeChatId}`);
-          const data = await res.json();
-          setMessages(data);
-        } catch (err) {
-          console.error("History Load Error:", err);
-        }
-      };
-      fetchHistory();
-      
-      const interval = setInterval(fetchHistory, 5000);
-      return () => clearInterval(interval);
+  // 1. Fetch Inbox (Conversation List) - Fix: Grouping to prevent duplication
+  const fetchInbox = async () => {
+  if (!userId) return;
+  try {
+    const res = await fetch(`http://localhost:5000/api/messages/inbox/${userId}`);
+    
+    if (!res.ok) {
+      console.error("Server responded but with an error status:", res.status);
+      return;
     }
+
+    const data = await res.json();
+    
+    // REMOVE DUPLICATION: Filter the list so only one entry per user_id exists
+    const uniqueConversations = data.reduce((acc, current) => {
+      const x = acc.find(item => (item.user_id || item.id) === (current.user_id || current.id));
+      if (!x) {
+        return acc.concat([current]);
+      } else {
+        return acc;
+      }
+    }, []);
+
+    setConversations(uniqueConversations);
+  } catch (err) {
+    console.error("Connection error:", err);
+  } finally {
+    setLoading(false);
+  }
+};
+
+  // 2. Fetch Message History
+  const fetchHistory = async () => {
+    if (!userId || !activeChatId) return;
+    try {
+      const res = await fetch(`http://localhost:5000/api/messages/history/${userId}/${activeChatId}`);
+      if (res.ok) {
+        const data = await res.json();
+        const formattedHistory = data.map(m => ({
+            ...m,
+            u_id: `db-${m.message_id || m.id}`
+        }));
+        setMessages(formattedHistory);
+      }
+    } catch (err) {
+      console.error("History Load Error:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchInbox();
+    const inboxInterval = setInterval(fetchInbox, 5000);
+    return () => clearInterval(inboxInterval);
+  }, [userId]);
+
+  useEffect(() => {
+    fetchHistory();
+    const historyInterval = setInterval(fetchHistory, 3000);
+    return () => clearInterval(historyInterval);
   }, [activeChatId, userId]);
 
-  // 3. Auto-scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
 
-  // Find active chat safely
-  const activeChat = conversations.find(c => (c.user_id || c.id) === activeChatId);
+  const activeChat = conversations.find(c => String(c.user_id || c.id) === String(activeChatId));
 
   const handleSelectChat = (id) => {
     setActiveChatId(id);
@@ -83,31 +103,28 @@ const Messages = () => {
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!messageInput.trim()) return;
+    if (!messageInput.trim() || !activeChatId) return;
 
-    const msgData = {
-      sender_id: userId,
-      receiver_id: activeChatId,
-      message_text: messageInput
-    };
-
-    // --- OPTIMISTIC UPDATE ---
-    const tempMsg = { 
-      ...msgData, 
-      message_id: Date.now(), 
-      created_at: new Date().toISOString() 
-    };
-    setMessages(prev => [...prev, tempMsg]);
-    setMessageInput("");
+    const currentMessageText = messageInput;
+    setMessageInput(""); 
 
     try {
-      await fetch('http://localhost:5000/api/messages/send', {
+      const res = await fetch('http://localhost:5000/api/messages/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(msgData)
+        body: JSON.stringify({
+            sender_id: userId,
+            receiver_id: activeChatId,
+            message_text: currentMessageText,
+            app_id: activeChat?.app_id || null 
+        })
       });
+
+      if (res.ok) {
+        fetchHistory();
+      }
     } catch (err) {
-      console.error("Failed to send message", err);
+      console.error("Failed to sync message to backend", err);
     }
   };
 
@@ -137,10 +154,8 @@ const Messages = () => {
         </div>
       </aside>
 
-      {/* --- MAIN CONTENT AREA --- */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">
         
-        {/* Top Header */}
         <header className={`h-20 border-b border-slate-200 px-6 sm:px-8 flex items-center justify-between flex-shrink-0 z-10 ${showChatOnMobile ? 'hidden sm:flex' : 'flex'}`}>
           <div className="flex items-center gap-6 w-full max-w-2xl">
             <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight hidden sm:block">Inbox</h2>
@@ -153,7 +168,6 @@ const Messages = () => {
             <div className="h-8 w-px bg-slate-200 hidden sm:block"></div>
             <div className="flex items-center gap-3 cursor-pointer pl-1 sm:pl-2">
               <div className="text-right hidden sm:block">
-                {/* FIXED: Uses Username instead of First/Last Name */}
                 <p className="text-sm font-bold text-slate-900 leading-none">{safeUserName}</p>
                 <p className="text-xs text-slate-500 mt-1">Applicant</p>
               </div>
@@ -166,7 +180,6 @@ const Messages = () => {
 
         <main className="flex-1 flex overflow-hidden">
           
-          {/* --- LEFT PANEL: Conversation List --- */}
           <div className={`w-full sm:w-80 md:w-96 flex-shrink-0 border-r border-slate-200 flex flex-col bg-slate-50 ${showChatOnMobile ? 'hidden sm:flex' : 'flex'}`}>
             <div className="p-4 border-b border-slate-200 bg-white">
               <div className="relative">
@@ -179,31 +192,33 @@ const Messages = () => {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
               {loading ? (
                 <div className="p-8 text-center text-slate-400 font-bold">Loading chats...</div>
               ) : conversations.length === 0 ? (
                 <div className="p-8 text-center text-slate-400 font-medium">No messages yet.</div>
               ) : (
-                conversations.map(chat => {
+                conversations.map((chat) => {
                   const chatId = chat.user_id || chat.id;
-                  const displayCompany = chat.company_name || chat.company || "Unknown Company";
+                  const displayName = chat.company_name 
+                    ? chat.company_name 
+                    : (chat.first_name ? `${chat.first_name} ${chat.last_name || ''}` : "Unknown Company");
                   
                   return (
                     <button 
-                      key={chatId}
+                      key={`chat-item-${chatId}`} // Use unique ID as key
                       onClick={() => handleSelectChat(chatId)}
-                      className={`w-full text-left p-4 border-b border-slate-100 transition-colors flex items-start gap-4 ${activeChatId === chatId ? 'bg-blue-50/50 relative' : 'hover:bg-slate-100 bg-white'}`}
+                      className={`w-full text-left p-4 border-b border-slate-100 transition-colors flex items-start gap-4 ${String(activeChatId) === String(chatId) ? 'bg-blue-50/50 relative' : 'hover:bg-slate-100 bg-white'}`}
                     >
-                      {activeChatId === chatId && <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-600"></div>}
+                      {String(activeChatId) === String(chatId) && <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-600"></div>}
                       <div className="relative shrink-0">
                         <div className="w-12 h-12 rounded-xl border border-slate-200 flex items-center justify-center bg-slate-200 text-slate-600 font-black uppercase">
-                          {displayCompany.charAt(0)}
+                          {displayName.charAt(0)}
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-center mb-0.5">
-                          <h4 className="font-bold text-slate-900 truncate pr-2">{displayCompany}</h4>
+                          <h4 className="font-bold text-slate-900 truncate pr-2">{displayName}</h4>
                           <span className="text-[10px] font-bold text-slate-400 shrink-0">
                             {chat.time ? new Date(chat.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                           </span>
@@ -218,26 +233,27 @@ const Messages = () => {
             </div>
           </div>
 
-          {/* --- RIGHT PANEL: Active Chat Window --- */}
           <div className={`flex-1 flex flex-col bg-white ${!showChatOnMobile ? 'hidden sm:flex' : 'flex'}`}>
             {activeChat ? (
               <>
-                <div className="h-20 px-4 sm:px-6 border-b border-slate-200 bg-white flex items-center justify-between shrink-0 shadow-sm z-10">
+                <header className="h-20 px-6 border-b flex items-center justify-between shrink-0 shadow-sm z-10">
                   <div className="flex items-center gap-4">
                     <button onClick={() => setShowChatOnMobile(false)} className="sm:hidden p-2 -ml-2 text-slate-500 hover:text-slate-900"><ArrowLeft size={24} /></button>
-                    {/* FIXED: Safe extraction of company name initial */}
                     <div className="w-10 h-10 rounded-lg border border-slate-200 flex items-center justify-center bg-indigo-600 text-white font-bold hidden sm:flex uppercase">
-                      {(activeChat.company_name || activeChat.company || "C").charAt(0)}
+                      {(activeChat.company_name || activeChat.first_name || "C").charAt(0)}
                     </div>
                     <div>
-                      {/* FIXED: Safe extraction of company name */}
                       <h3 className="font-bold text-slate-900 leading-tight">
-                        {activeChat.company_name || activeChat.company || "Unknown Company"}
+                        {activeChat.company_name ? activeChat.company_name : `${activeChat.first_name || ''} ${activeChat.last_name || ''}`}
                       </h3>
                       <p className="text-xs font-bold text-blue-600 flex items-center gap-1 mt-0.5"><Briefcase size={12}/> {activeChat.role || "Job Inquiry"}</p>
                     </div>
                   </div>
-                </div>
+                  <div className="flex items-center gap-2">
+                    <button className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 hidden sm:block"><Phone size={20}/></button>
+                    <button className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"><MoreVertical size={20}/></button>
+                  </div>
+                </header>
 
                 <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50 flex flex-col gap-4 custom-scrollbar">
                   <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-xl flex items-start gap-3 max-w-lg mx-auto text-center mb-4">
@@ -245,14 +261,14 @@ const Messages = () => {
                     <p className="text-[11px] font-medium text-yellow-800">Never pay for "processing fees." Legitimate employers do not ask for money via chat.</p>
                   </div>
 
-                  {messages.map((msg) => {
-                    const isMe = msg.sender_id === userId;
+                  {messages.map((msg, idx) => {
+                    const isMe = String(msg.sender_id) === String(userId);
                     return (
-                      <div key={msg.message_id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                      <div key={msg.u_id || `msg-${idx}`} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                         <div className={`max-w-[85%] sm:max-w-[70%] rounded-2xl p-4 shadow-sm ${isMe ? 'bg-blue-600 text-white rounded-tr-sm' : 'bg-white border border-slate-200 text-slate-900 rounded-tl-sm'}`}>
                           <p className="text-sm font-medium leading-relaxed">{msg.message_text}</p>
                           <div className={`text-[9px] font-bold mt-2 flex items-center gap-1 ${isMe ? 'text-blue-200 justify-end' : 'text-slate-400'}`}>
-                            {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {new Date(msg.created_at || msg.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             {isMe && <CheckCircle2 size={10} className="text-blue-300 ml-1" />}
                           </div>
                         </div>
@@ -263,7 +279,7 @@ const Messages = () => {
 
                 <div className="p-4 bg-white border-t border-slate-200 shrink-0">
                   <form onSubmit={handleSendMessage} className="flex items-end gap-2 max-w-4xl mx-auto">
-                    <button type="button" className="p-3.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors shrink-0"><Paperclip size={20} /></button>
+                    <button type="button" className="p-3.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full shrink-0"><Paperclip size={20} /></button>
                     <div className="flex-1 bg-slate-100 rounded-2xl border border-slate-200 flex items-center focus-within:ring-2 focus-within:ring-blue-600 focus-within:bg-white transition-all">
                       <textarea 
                         rows="1"
@@ -272,7 +288,6 @@ const Messages = () => {
                         placeholder="Type a message..."
                         className="w-full bg-transparent px-4 py-3.5 text-sm font-medium focus:outline-none resize-none"
                       />
-                      <button type="button" className="p-3 text-blue-600 hover:bg-blue-50 rounded-xl mr-1 hidden sm:block"><Mic size={20} /></button>
                     </div>
                     <button type="submit" className={`p-3.5 rounded-full transition-colors shadow-sm shrink-0 ${messageInput.trim() ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`} disabled={!messageInput.trim()}>
                       <Send size={20} className="ml-0.5" />
@@ -294,7 +309,6 @@ const Messages = () => {
   );
 };
 
-// --- HELPER COMPONENT ---
 const SidebarLink = ({ icon, label, active, to = "#" }) => (
   <Link to={to} className={`flex items-center justify-between px-4 py-3 rounded-xl transition-colors font-bold ${active ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
     <div className="flex items-center gap-3">{icon}<span>{label}</span></div>

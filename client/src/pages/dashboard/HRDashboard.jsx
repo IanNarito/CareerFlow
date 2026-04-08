@@ -1,18 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, Briefcase, Calendar as CalendarIcon, 
   Settings, Bell, Search, Plus, 
   CheckCircle2, Clock, MapPin, Building2, ChevronDown,
-  Filter, Mail, ExternalLink, Loader2, XCircle
+  Filter, Mail, ExternalLink, Loader2, XCircle, MessageSquare, Send
 } from 'lucide-react';
 
 const HRDashboard = () => {
   const navigate = useNavigate();
+  const scrollRef = useRef(null);
   const [hrProfile, setHrProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   
-  // --- NEW STATES ---
+  // --- EXISTING STATES ---
   const [stats, setStats] = useState({
     totalCandidates: 0,
     upcomingInterviews: 0,
@@ -20,10 +21,16 @@ const HRDashboard = () => {
   });
   const [rejectedCandidates, setRejectedCandidates] = useState([]);
 
-  useEffect(() => {
-    const savedUser = JSON.parse(localStorage.getItem('user'));
-    const actualId = savedUser?.id || savedUser?.user_id;
+  // --- HR MESSAGES STATES ---
+  const [conversations, setConversations] = useState([]);
+  const [activeChatId, setActiveChatId] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [messageInput, setMessageInput] = useState("");
 
+  const savedUser = JSON.parse(localStorage.getItem('user'));
+  const actualId = savedUser?.id || savedUser?.user_id;
+
+  useEffect(() => {
     if (!savedUser || savedUser.role !== 'hr') {
       navigate('/login');
       return;
@@ -45,7 +52,7 @@ const HRDashboard = () => {
           setStats(statsData);
         }
 
-        // 3. FETCH RECENTLY REJECTED (The Safety Net)
+        // 3. FETCH RECENTLY REJECTED
         const rejectedRes = await fetch(`http://localhost:5000/api/hr/rejected-candidates/${actualId}`);
         if (rejectedRes.ok) {
           const rejectedData = await rejectedRes.json();
@@ -66,6 +73,92 @@ const HRDashboard = () => {
     }
   }, [navigate]);
 
+  // --- HR MESSAGES SYNC LOGIC ---
+  useEffect(() => {
+    const syncMessages = async () => {
+      if (!actualId) return;
+
+      try {
+        const res = await fetch(`http://localhost:5000/api/messages/inbox/${actualId}`);
+        const apiInbox = res.ok ? await res.json() : [];
+        const allLocal = JSON.parse(localStorage.getItem('careerflow_messages') || '[]');
+
+        const grouped = {};
+        apiInbox.forEach(c => {
+          const cid = String(c.user_id || c.id);
+          grouped[cid] = { id: cid, name: c.name || "Applicant", lastMessage: c.lastMessage, time: c.time, role: c.role };
+        });
+
+        allLocal.forEach(m => {
+          const isMeSender = String(m.sender_id) === String(actualId);
+          const isMeReceiver = String(m.receiver_id) === String(actualId);
+
+          if (isMeSender || isMeReceiver) {
+            const otherId = isMeSender ? String(m.receiver_id) : String(m.sender_id);
+            const otherName = isMeSender ? (m.receiver_name || "Applicant") : (m.sender_name || "Applicant");
+
+            if (!grouped[otherId] || new Date(m.created_at) > new Date(grouped[otherId].time)) {
+              grouped[otherId] = {
+                id: otherId,
+                name: otherName,
+                lastMessage: m.message_text,
+                time: m.created_at,
+                role: m.job_title || "Job Applicant"
+              };
+            }
+          }
+        });
+
+        const final = Object.values(grouped).sort((a, b) => new Date(b.time) - new Date(a.time));
+        setConversations(final);
+
+        if (activeChatId) {
+          const histRes = await fetch(`http://localhost:5000/api/messages/history/${actualId}/${activeChatId}`);
+          const apiHistory = histRes.ok ? await histRes.json() : [];
+          const localHistory = allLocal.filter(m => 
+            (String(m.sender_id) === String(actualId) && String(m.receiver_id) === String(activeChatId)) ||
+            (String(m.sender_id) === String(activeChatId) && String(m.receiver_id) === String(actualId))
+          );
+          const combined = [
+            ...apiHistory.map(m => ({...m, u_id: `api-${m.id}`})),
+            ...localHistory.map(m => ({...m, u_id: `br-${m.message_id || m.created_at}`}))
+          ].reduce((acc, curr) => { if (!acc.find(i => i.u_id === curr.u_id)) acc.push(curr); return acc; }, []);
+          setMessages(combined.sort((a, b) => new Date(a.created_at || a.time) - new Date(b.created_at || b.time)));
+        }
+      } catch (err) { console.error(err); }
+    };
+
+    syncMessages();
+    window.addEventListener('storage', syncMessages);
+    const interval = setInterval(syncMessages, 3000);
+    return () => { clearInterval(interval); window.removeEventListener('storage', syncMessages); };
+  }, [actualId, activeChatId]);
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages]);
+
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (!messageInput.trim() || !activeChatId) return;
+    const activeChat = conversations.find(c => String(c.id) === String(activeChatId));
+    const newMessage = {
+      message_id: Date.now(),
+      sender_id: actualId,
+      sender_name: hrProfile?.company_name || "HR",
+      receiver_id: activeChatId,
+      receiver_name: activeChat?.name || "Applicant",
+      message_text: messageInput,
+      created_at: new Date().toISOString(),
+      job_title: activeChat?.role || "Inquiry"
+    };
+    setMessages(prev => [...prev, {...newMessage, u_id: `temp-${Date.now()}`}]);
+    const local = JSON.parse(localStorage.getItem('careerflow_messages') || '[]');
+    localStorage.setItem('careerflow_messages', JSON.stringify([...local, newMessage]));
+    setMessageInput("");
+    try { await fetch('http://localhost:5000/api/messages/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sender_id: actualId, receiver_id: activeChatId, message_text: newMessage.message_text }) }); } catch (err) {}
+  };
+
   if (loading) return <div className="p-20 text-center font-bold text-slate-600">Loading HR Workspace...</div>;
 
   return (
@@ -84,6 +177,7 @@ const HRDashboard = () => {
           <SidebarLink icon={<LayoutDashboard size={20}/>} label="Dashboard" active to="/hr-dashboard" />
           <SidebarLink icon={<Briefcase size={20}/>} label="Job Postings" to="/hr/jobs" />
           <SidebarLink icon={<Users size={20}/>} label="Candidates" badge={stats.totalCandidates} to="/hr/board" />
+          <SidebarLink icon={<MessageSquare size={20}/>} label="Messages" to="/hr-messages" badge={conversations.length} />
           <SidebarLink icon={<CalendarIcon size={20}/>} label="Interviews" to="/hr/interviews" />
           <SidebarLink icon={<Building2 size={20}/>} label="Company Profile" to="/hr/profile" />
         </nav>
@@ -237,7 +331,7 @@ const SidebarLink = ({ icon, label, badge, active, to = "#" }) => (
       <span>{label}</span>
     </div>
     {badge > 0 && (
-      <span className="bg-indigo-500 text-white text-[10px] px-2.5 py-0.5 rounded-full">{badge}</span>
+      <span className="bg-indigo-500 text-white text-[10px] px-2.5 py-0.5 rounded-full font-bold">{badge}</span>
     )}
   </Link>
 );
