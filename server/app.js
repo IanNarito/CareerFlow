@@ -943,5 +943,120 @@ app.put('/api/interviews/cancel/:interviewId', async (req, res) => {
     }
 });
 
+const handleToggleSave = () => {
+  if (!user) {
+    navigate('/login');
+    return;
+  }
+
+  // 1. Get current saved jobs from local storage or start with empty array
+  const savedKey = `saved_jobs_${user.id || user.user_id}`;
+  const localSaved = JSON.parse(localStorage.getItem(savedKey) || '[]');
+
+  if (isSaved) {
+    // Remove: Filter out this job
+    const updated = localSaved.filter(j => j.job_id.toString() !== id.toString());
+    localStorage.setItem(savedKey, JSON.stringify(updated));
+    setIsSaved(false);
+  } else {
+    // Add: Push current job details into the array
+    const newSave = {
+      ...job,           // This spreads the title, company, etc.
+      job_id: id,       // Ensure ID is set
+      saved_at: new Date().toISOString()
+    };
+    const updated = [...localSaved, newSave];
+    localStorage.setItem(savedKey, JSON.stringify(updated));
+    setIsSaved(true);
+  }
+};
+
+const handleSendMessage = async (e) => {
+  e.preventDefault();
+
+  const msgData = {
+    sender_id: user.id,          // The Job Seeker
+    receiver_id: job.employer_id, // THIS IS THE CONNECTION. It must be the HR's ID.
+    message_text: messageInput,
+    app_id: application.id       // Links it to the specific job application
+  };
+
+  // 1. Save to Database (Permanent)
+  await fetch('http://localhost:5000/api/messages/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(msgData)
+  });
+
+  // 2. Save to LocalStorage Bridge (Instant notification for demo)
+  const bridgeMessages = JSON.parse(localStorage.getItem('careerflow_messages') || '[]');
+  localStorage.setItem('careerflow_messages', JSON.stringify([...bridgeMessages, msgData]));
+};
+
+// --- 1. GET INBOX ---
+// Gets a list of unique people the user (HR or Seeker) has chatted with
+app.get('/api/messages/inbox/:userId', (req, res) => {
+  const { userId } = req.params;
+  const sql = `
+    SELECT 
+      u.id AS user_id, 
+      u.username AS name, 
+      u.first_name, 
+      u.last_name,
+      m.message_text AS lastMessage, 
+      m.created_at AS time
+    FROM messages m
+    JOIN users u ON (u.id = m.sender_id OR u.id = m.receiver_id)
+    WHERE (m.sender_id = ? OR m.receiver_id = ?) 
+      AND u.id != ?
+    GROUP BY u.id
+    ORDER BY m.created_at DESC
+  `;
+
+  db.query(sql, [userId, userId, userId], (err, results) => {
+    if (err) return res.status(500).json(err);
+    console.log(`>>> DB found ${results.length} conversations for HR ID ${userId}`);
+    res.json(results);
+  });
+});
+
+// --- 2. GET HISTORY ---
+// Gets all messages between two specific users
+app.get('/api/messages/history/:userId/:otherId', (req, res) => {
+    const { userId, otherId } = req.params;
+    const sql = `
+        SELECT * FROM messages 
+        WHERE (sender_id = ? AND receiver_id = ?) 
+           OR (sender_id = ? AND receiver_id = ?)
+        ORDER BY created_at ASC
+    `;
+
+    db.query(sql, [userId, otherId, otherId, userId], (err, results) => {
+        if (err) {
+            console.error("SQL Error in History:", err);
+            return res.status(500).json(err);
+        }
+        res.json(results);
+    });
+});
+
+// --- 3. SEND MESSAGE ---
+app.post('/api/messages/send', (req, res) => {
+    const { sender_id, receiver_id, message_text } = req.body;
+    
+    if (!sender_id || !receiver_id || !message_text) {
+        return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const sql = "INSERT INTO messages (sender_id, receiver_id, message_text, created_at) VALUES (?, ?, ?, NOW())";
+
+    db.query(sql, [sender_id, receiver_id, message_text], (err, result) => {
+        if (err) {
+            console.error("SQL Error in Send:", err);
+            return res.status(500).json(err);
+        }
+        res.json({ success: true, message_id: result.insertId });
+    });
+});
 // Important: Export the app so index.js can see it
 module.exports = app;

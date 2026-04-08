@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom'; // <-- Added useNavigate
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Search, MapPin, Briefcase, DollarSign, 
   Bookmark, Filter, CheckCircle2, Mic, Volume2, 
@@ -35,9 +35,8 @@ const JobList = () => {
   const [scrolled, setScrolled] = useState(false);
   const [user, setUser] = useState(null);
   
-  // --- DATABASE & FILTER STATE ---
   const [jobs, setJobs] = useState([]);
-  const [savedJobIds, setSavedJobIds] = useState([]); // <-- NEW: Tracks saved jobs
+  const [savedJobIds, setSavedJobIds] = useState([]); 
   const [loading, setLoading] = useState(true);
   
   const [searchQuery, setSearchQuery] = useState("");
@@ -59,15 +58,14 @@ const JobList = () => {
 
     const fetchData = async () => {
       try {
-        // Fetch all jobs
         const jobsRes = await fetch('http://localhost:5000/api/jobs');
         const jobsData = await jobsRes.json();
         setJobs(jobsData);
 
-        // Fetch user's saved jobs to turn the bookmarks blue automatically
+        // --- UPDATED: Load saves from localStorage instead of API ---
         if (activeUserId) {
-          const savedRes = await fetch(`http://localhost:5000/api/saved-jobs/${activeUserId}`);
-          const savedData = await savedRes.json();
+          const savedKey = `saved_jobs_${activeUserId}`;
+          const savedData = JSON.parse(localStorage.getItem(savedKey) || '[]');
           setSavedJobIds(savedData.map(job => job.job_id));
         }
       } catch (error) {
@@ -81,36 +79,39 @@ const JobList = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // --- SAVE LOGIC ---
-  const handleToggleSave = async (jobId) => {
+  // --- UPDATED: BULLETPROOF SAVE LOGIC FOR NO-BACKEND ---
+  const handleToggleSave = (jobId) => {
     if (!user) {
       navigate('/login');
       return;
     }
-
     const userId = user.id || user.user_id;
+    const savedKey = `saved_jobs_${userId}`;
     const isAlreadySaved = savedJobIds.includes(jobId);
 
-    try {
-      if (isAlreadySaved) {
-        // Remove bookmark
-        const res = await fetch(`http://localhost:5000/api/saved-jobs/${userId}/${jobId}`, { method: 'DELETE' });
-        if (res.ok) setSavedJobIds(prev => prev.filter(id => id !== jobId));
-      } else {
-        // Add bookmark
-        const res = await fetch(`http://localhost:5000/api/saved-jobs`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: userId, job_id: jobId })
-        });
-        if (res.ok) setSavedJobIds(prev => [...prev, jobId]);
+    // Get current list
+    const localSaved = JSON.parse(localStorage.getItem(savedKey) || '[]');
+
+    if (isAlreadySaved) {
+      // Remove
+      const updated = localSaved.filter(j => j.job_id !== jobId);
+      localStorage.setItem(savedKey, JSON.stringify(updated));
+      setSavedJobIds(prev => prev.filter(id => id !== jobId));
+    } else {
+      // Add (Find the full job object from state)
+      const jobToSave = jobs.find(j => j.job_id === jobId);
+      if (jobToSave) {
+        const newSave = {
+          ...jobToSave,
+          saved_at: new Date().toISOString()
+        };
+        const updated = [...localSaved, newSave];
+        localStorage.setItem(savedKey, JSON.stringify(updated));
+        setSavedJobIds(prev => [...prev, jobId]);
       }
-    } catch (err) {
-      console.error("Save error:", err);
     }
   };
 
-  // --- FILTER LOGIC ---
   const toggleCategory = (id) => setActiveCategories(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]);
   const toggleRegion = (id) => setActiveRegions(prev => prev.includes(id) ? prev.filter(r => r !== id) : [...prev, id]);
   const clearFilters = () => { setSearchQuery(""); setLocationQuery(""); setActiveCategories([]); setActiveRegions([]); };
@@ -140,7 +141,6 @@ const JobList = () => {
   return (
     <div className="min-h-screen w-full bg-slate-50 font-sans text-slate-900">
       
-      {/* --- ENTERPRISE NAVIGATION --- */}
       <nav className={`fixed top-0 left-0 w-full z-50 transition-all duration-200 border-b ${scrolled ? 'bg-white shadow-sm border-slate-200 py-3' : 'bg-slate-900 border-slate-800 py-4'}`}>
         <div className="max-w-[1400px] w-full mx-auto px-6 flex items-center justify-between">
           <div className="flex items-center gap-10">
@@ -167,18 +167,12 @@ const JobList = () => {
         </div>
       </nav>
 
-      {/* --- RICH HERO SECTION --- */}
       <section className="relative w-full pt-32 pb-40 bg-slate-900 flex flex-col items-center border-b border-slate-800">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-[20%] -right-[10%] w-[50%] h-[100%] rounded-full bg-blue-600/15 blur-[120px]"></div>
-          <div className="absolute top-[20%] -left-[10%] w-[40%] h-[80%] rounded-full bg-indigo-600/15 blur-[120px]"></div>
-        </div>
         <div className="max-w-[1400px] w-full px-6 relative z-10 text-center lg:text-left mt-4">
           <h2 className="text-4xl lg:text-5xl font-extrabold text-white mb-4 tracking-tight">Find the right job using your voice.</h2>
           <p className="text-lg text-slate-400 max-w-2xl mx-auto lg:mx-0">Discover verified blue-collar opportunities across the Philippines.</p>
         </div>
 
-        {/* Overlapping Search Bar */}
         <div className="absolute -bottom-12 left-0 right-0 w-full px-6 z-20">
           <div className="max-w-[1200px] w-full mx-auto bg-white p-3 rounded-2xl shadow-xl shadow-blue-900/10 flex flex-col md:flex-row gap-3 border border-slate-200">
             <div className="flex-1 flex items-center bg-slate-50 rounded-xl px-5 py-4 border-2 border-transparent focus-within:border-blue-400 focus-within:bg-white transition-all">
@@ -195,7 +189,6 @@ const JobList = () => {
         </div>
       </section>
 
-      {/* --- MAIN GRID LAYOUT --- */}
       <main className="w-full max-w-[1400px] mx-auto px-6 pt-24 pb-16">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full">
           
@@ -244,7 +237,6 @@ const JobList = () => {
                 <div className="text-center py-20 bg-white rounded-2xl border-2 border-dashed border-slate-200">
                   <Briefcase size={48} className="mx-auto text-slate-300 mb-4" />
                   <h3 className="text-xl font-bold text-slate-900 mb-2">No exact matches found.</h3>
-                  <p className="text-slate-500 font-medium mb-4">Try adjusting your filters or search terms.</p>
                   <button onClick={clearFilters} className="text-blue-600 font-bold hover:underline">Clear all filters</button>
                 </div>
               ) : (
@@ -265,7 +257,7 @@ const JobList = () => {
               <div className="absolute -top-10 -right-10 w-40 h-40 bg-blue-600/30 rounded-full blur-3xl"></div>
               <div className="w-14 h-14 bg-blue-600 rounded-xl flex items-center justify-center mb-6 shadow-inner relative z-10"><Mic size={28} className="text-white" /></div>
               <h3 className="text-2xl font-bold mb-3 leading-tight relative z-10">Apply without typing.</h3>
-              <p className="text-slate-400 text-sm mb-8 leading-relaxed relative z-10">Activate the Voice Assistant to answer interview questions and build your profile using only your microphone.</p>
+              <p className="text-slate-400 text-sm mb-8 leading-relaxed relative z-10">Activate the Voice Assistant to Answer Interview questions.</p>
               <Link to={user ? "/voice-builder" : "/login"} className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-colors shadow-md relative z-10">Start Voice Setup</Link>
             </div>
           </aside>
@@ -276,11 +268,10 @@ const JobList = () => {
   );
 };
 
-/* --- HELPER COMPONENTS --- */
 const FilterToggle = ({ icon, label, checked, onChange }) => (
-  <label className={`flex items-center p-3 rounded-xl border-2 cursor-pointer transition-all ${checked ? 'bg-blue-50 border-blue-500' : 'bg-white border-slate-200 hover:border-blue-300 hover:bg-slate-50'}`}>
+  <label className={`flex items-center p-3 rounded-xl border-2 cursor-pointer transition-all ${checked ? 'bg-blue-50 border-blue-500' : 'bg-white border-slate-200 hover:border-blue-300'}`}>
     <input type="checkbox" className="hidden" checked={checked} onChange={onChange} />
-    <div className={`w-5 h-5 rounded mr-3 flex items-center justify-center border shrink-0 ${checked ? 'bg-blue-600 border-blue-600' : 'bg-slate-100 border-slate-300'}`}>
+    <div className={`w-5 h-5 rounded mr-3 flex items-center justify-center border shrink-0 ${checked ? 'bg-blue-600 border-blue-600' : 'bg-slate-100'}`}>
       {checked && <CheckCircle2 size={12} className="text-white" />}
     </div>
     <div className="flex items-center gap-2 min-w-0">
@@ -290,49 +281,67 @@ const FilterToggle = ({ icon, label, checked, onChange }) => (
   </label>
 );
 
-const JobCard = ({ job, isSaved, onToggleSave }) => (
-  <div className="bg-white border border-slate-200 rounded-xl p-5 hover:border-blue-400 hover:shadow-lg transition-all flex flex-col sm:flex-row gap-5 relative group">
-    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 font-black text-2xl shrink-0 group-hover:scale-105 transition-transform">
-      <Building2 size={32} className="text-blue-200" />
-    </div>
-    <div className="flex-1 min-w-0">
-      <div className="flex justify-between items-start">
-        <div>
-          <Link to={`/jobs/${job.job_id}`}>
-            <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 hover:text-blue-600 transition-colors truncate mb-1">{job.title}</h3>
-          </Link>
-          <div className="flex items-center gap-2 text-slate-600">
-            <Building2 size={14} className="text-slate-400" />
-            <p className="text-sm font-bold">{job.company_name}</p>
-            <ShieldCheck size={14} className="text-green-600" title="Verified Employer" />
-          </div>
-        </div>
-        
-        {/* --- DYNAMIC BOOKMARK BUTTON --- */}
+const JobCard = ({ job, isSaved, onToggleSave }) => {
+  const navigate = useNavigate();
+
+  return (
+    <div className="relative">
+      <div className="absolute top-5 right-5 z-50">
         <button 
-          onClick={(e) => { e.preventDefault(); onToggleSave(job.job_id); }}
-          className={`p-2.5 rounded-lg transition-colors ${isSaved ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-400 hover:text-blue-600 hover:bg-blue-50'}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSave(job.job_id);
+          }}
+          className={`p-2.5 rounded-lg transition-all border shadow-sm ${
+            isSaved 
+              ? 'bg-blue-600 text-white border-blue-600' 
+              : 'bg-white text-slate-400 border-slate-200 hover:text-blue-600 hover:border-blue-400'
+          }`}
+          title={isSaved ? "Remove from saved" : "Save job"}
         >
           <Bookmark size={20} className={isSaved ? "fill-current" : ""} />
         </button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4 text-sm font-medium text-slate-600">
-        <div className="flex items-center gap-1.5 font-bold"><MapPin size={16} className="text-slate-400"/> {job.location}</div>
-        <div className="flex items-center gap-1.5 font-bold text-green-700"><DollarSign size={16} className="text-green-500"/> ₱{job.salary_min} - ₱{job.salary_max}</div>
-        <div className="flex items-center gap-1.5 font-bold"><Briefcase size={16} className="text-slate-400"/> {job.employment_type || "Full-time"}</div>
-      </div>
+      <div 
+        onClick={() => navigate(`/jobs/${job.job_id}`)}
+        className="bg-white border border-slate-200 rounded-xl p-5 hover:border-blue-400 hover:shadow-lg transition-all flex flex-col sm:flex-row gap-5 relative group cursor-pointer"
+      >
+        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 font-black text-2xl shrink-0 group-hover:scale-105 transition-transform">
+          <Building2 size={32} className="text-blue-200" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex justify-between items-start">
+            <div className="pr-12">
+              <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 group-hover:text-blue-600 transition-colors truncate mb-1">
+                {job.title}
+              </h3>
+              <div className="flex items-center gap-2 text-slate-600">
+                <Building2 size={14} className="text-slate-400" />
+                <p className="text-sm font-bold">{job.company_name}</p>
+                <ShieldCheck size={14} className="text-green-600" />
+              </div>
+            </div>
+          </div>
 
-      <div className="mt-5 pt-4 border-t border-slate-100 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded">
-          Posted {new Date(job.posted_at).toLocaleDateString()}
-        </span>
-        <Link to={`/jobs/${job.job_id}`} className="flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
-          <Mic size={16} /> View & Apply
-        </Link>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4 text-sm font-medium text-slate-600">
+            <div className="flex items-center gap-1.5 font-bold"><MapPin size={16} className="text-slate-400"/> {job.location}</div>
+            <div className="flex items-center gap-1.5 font-bold text-green-700"><DollarSign size={16} className="text-green-500"/> ₱{job.salary_min} - ₱{job.salary_max}</div>
+            <div className="flex items-center gap-1.5 font-bold"><Briefcase size={16} className="text-slate-400"/> {job.employment_type || "Full-time"}</div>
+          </div>
+
+          <div className="mt-5 pt-4 border-t border-slate-100 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded">
+              Posted {job.posted_at ? new Date(job.posted_at).toLocaleDateString() : "Recently"}
+            </span>
+            <div className="flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-lg group-hover:bg-blue-700 transition-colors shadow-sm">
+              <Mic size={16} /> View & Apply
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default JobList;

@@ -16,28 +16,31 @@ const SavedJobs = () => {
   const userId = currentUser?.id || currentUser?.user_id;
 
   useEffect(() => {
-    const fetchSaved = async () => {
+    // Instead of fetching from a backend, we read from localStorage
+    const loadSavedJobs = () => {
+      setLoading(true);
       try {
-        const res = await fetch(`http://localhost:5000/api/saved-jobs/${userId}`);
-        const data = await res.json();
-        setSavedJobs(data);
+        if (userId) {
+          const savedKey = `saved_jobs_${userId}`;
+          const localData = JSON.parse(localStorage.getItem(savedKey) || '[]');
+          setSavedJobs(localData);
+        }
       } catch (err) {
-        console.error("Error fetching saved jobs:", err);
+        console.error("Error loading saved jobs:", err);
       } finally {
         setLoading(false);
       }
     };
-    if (userId) fetchSaved();
+
+    loadSavedJobs();
   }, [userId]);
 
-  const handleRemove = async (jobId) => {
+  const handleRemove = (jobId) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/saved-jobs/${userId}/${jobId}`, {
-        method: 'DELETE'
-      });
-      if (res.ok) {
-        setSavedJobs(prev => prev.filter(job => job.job_id !== jobId));
-      }
+      const savedKey = `saved_jobs_${userId}`;
+      const updated = savedJobs.filter(job => job.job_id !== jobId);
+      localStorage.setItem(savedKey, JSON.stringify(updated));
+      setSavedJobs(updated);
     } catch (err) {
       alert("Failed to remove job.");
     }
@@ -62,7 +65,6 @@ const SavedJobs = () => {
           <SidebarLink icon={<MessageSquare size={20}/>} label="Messages" to="/messages" />
           <SidebarLink icon={<FileText size={20}/>} label="My Resume" to="/resume" />
         </nav>
-        {/* --- Settings ONLY --- */}
         <div className="p-4 border-t border-slate-800 space-y-2">
           <SidebarLink icon={<Mic size={20}/>} label="Voice Profile" to="/voice-builder" />
           <SidebarLink icon={<Settings size={20}/>} label="Settings" to="/settings" />
@@ -73,7 +75,7 @@ const SavedJobs = () => {
         <header className="h-20 bg-white border-b border-slate-200 px-6 sm:px-8 flex items-center justify-between flex-shrink-0 z-10">
           <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight hidden sm:block">Saved Jobs</h2>
           <div className="flex items-center gap-3">
-             <div className="text-right hidden sm:block">
+              <div className="text-right hidden sm:block">
                 <p className="text-sm font-bold text-slate-900 leading-none">{currentUser?.username}</p>
                 <p className="text-xs text-slate-500 mt-1">Applicant</p>
               </div>
@@ -111,7 +113,7 @@ const SavedJobs = () => {
                     </button>
 
                     <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-black text-xl shrink-0">
-                      {job.company_name?.[0]}
+                      {job.company_name?.[0] || 'J'}
                     </div>
 
                     <div className="flex-1 min-w-0">
@@ -126,7 +128,7 @@ const SavedJobs = () => {
                       </div>
 
                       <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                        <Clock size={12} /> Saved {new Date(job.saved_at).toLocaleDateString()}
+                        <Clock size={12} /> Saved {job.saved_at ? new Date(job.saved_at).toLocaleDateString() : 'Recently'}
                       </div>
                     </div>
 

@@ -39,18 +39,16 @@ const JobDetails = () => {
           setJob(null);
         } else {
           setJob(data);
-        }
-
-        // Fetch User's Saved Jobs (To see if THIS job is saved)
-        if (activeUserId) {
-          const savedRes = await fetch(`http://localhost:5000/api/saved-jobs/${activeUserId}`);
-          const savedData = await savedRes.json();
-          // Check if this job's ID is in the saved list
-          if (savedData.some(j => j.job_id.toString() === id)) {
-             setIsSaved(true);
+          
+          // --- UPDATED: Check localStorage for saved status ---
+          if (activeUserId) {
+            const savedKey = `saved_jobs_${activeUserId}`;
+            const localSaved = JSON.parse(localStorage.getItem(savedKey) || '[]');
+            if (localSaved.some(j => j.job_id.toString() === id.toString())) {
+              setIsSaved(true);
+            }
           }
         }
-
       } catch (error) {
         console.error("Error fetching job:", error);
       } finally {
@@ -65,30 +63,31 @@ const JobDetails = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [id]);
 
-  // --- SAVE JOB LOGIC ---
-  const handleToggleSave = async () => {
+  // --- SAVE JOB LOGIC (UPDATED FOR NO-BACKEND) ---
+  const handleToggleSave = () => {
     if (!user) {
       navigate('/login');
       return;
     }
     const userId = user.id || user.user_id;
+    const savedKey = `saved_jobs_${userId}`;
+    const localSaved = JSON.parse(localStorage.getItem(savedKey) || '[]');
 
-    try {
-      if (isSaved) {
-         // Remove Save
-         await fetch(`http://localhost:5000/api/saved-jobs/${userId}/${id}`, { method: 'DELETE' });
-         setIsSaved(false);
-      } else {
-         // Add Save
-         await fetch(`http://localhost:5000/api/saved-jobs`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId, job_id: id })
-         });
-         setIsSaved(true);
-      }
-    } catch (err) {
-      console.error("Error toggling save:", err);
+    if (isSaved) {
+      // Remove Save
+      const updated = localSaved.filter(j => j.job_id.toString() !== id.toString());
+      localStorage.setItem(savedKey, JSON.stringify(updated));
+      setIsSaved(false);
+    } else {
+      // Add Save (Include all job info so Saved Jobs page can show it)
+      const newSave = {
+        ...job,
+        job_id: id,
+        saved_at: new Date().toISOString()
+      };
+      const updated = [...localSaved, newSave];
+      localStorage.setItem(savedKey, JSON.stringify(updated));
+      setIsSaved(true);
     }
   };
 

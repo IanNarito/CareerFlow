@@ -32,13 +32,14 @@ import Features from './pages/Features';
 import Contact from './pages/Contact';
 import FAQ from './pages/FAQ';
 import Resume from './pages/seeker/Resume';
-
+import HRMessages from './pages/hr/HRmessages';
 
 function App() {
   return (
     <Router>
       <div className="app-container">
         <Routes>
+          {/* General Routes */}
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
           <Route path="/features" element={<Features />} />
@@ -46,32 +47,41 @@ function App() {
           <Route path="/faq" element={<FAQ />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/resume" element={<Resume />} />
-          <Route path="/jobs" element={<JobList />} />
           <Route path="/onboarding" element={<Onboarding />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/hr-dashboard" element={<HRDashboard />} />
-          <Route path="/hr/create-job" element={<CreateJob />} />
-          <Route path="/voice-builder" element={<VoiceBuilder />} />
+
+          {/* Job Routes */}
+          <Route path="/jobs" element={<JobList />} />
           <Route path="/jobs/:id" element={<JobDetails />} />
+          <Route path="/company/:id" element={<CompanyPublicPage />} />
+
+          {/* Seeker Routes */}
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/applications" element={<MyApplications />} />
+          <Route path="/application/:id" element={<ApplicationTracker />} />
+          <Route path="/saved" element={<SavedJobs />} />
+          <Route path="/messages" element={<Messages />} />
+          <Route path="/resume" element={<Resume />} />
+          <Route path="/voice-builder" element={<VoiceBuilder />} />
+          <Route path="/settings" element={<SeekerSettings />} />
+
+          {/* Employer / HR Routes */}
+          <Route path="/hr-dashboard" element={<HRDashboard />} />
+          <Route path="/hr-messages" element={<HRMessages />} /> {/* FIXED: Added this route */}
+          <Route path="/hr/create-job" element={<CreateJob />} />
           <Route path="/hr/board" element={<ApplicantBoard />} />
           <Route path="/hr/candidate/:id" element={<CandidateReview />} />
-          <Route path="/application/:id" element={<ApplicationTracker />} />
           <Route path="/hr/jobs" element={<JobPostings />} />
           <Route path="/hr/interviews" element={<Interviews />} />
           <Route path="/hr/profile" element={<CompanyProfile />} />
-          <Route path="/company/:id" element={<CompanyPublicPage />} />
           <Route path="/hr/settings" element={<HRSettings />} />
-          <Route path="/applications" element={<MyApplications />} />
-          <Route path="/saved" element={<SavedJobs />} />
-          <Route path="/messages" element={<Messages />} />
-          <Route path="/settings" element={<SeekerSettings />} />
+
+          {/* Admin Routes */}
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin/users" element={<AdminUsers />} />
           <Route path="/admin/verifications" element={<AdminVerifications />} />
           <Route path="/admin/jobs" element={<AdminJobs />} />
           <Route path="/admin/settings" element={<AdminSettings />} />
-          <Route path="/admin/login" element={<AdminLogin />} />
         </Routes>
       </div>
     </Router>
