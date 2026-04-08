@@ -11,19 +11,17 @@ const model = genAI.getGenerativeModel({
 async function extractResumeInfo(transcript, step) {
     let promptSuffix = "";
     
-    // We now handle 6 distinct steps of the interview
+    // We now handle 5 broad, open-ended steps
     if (step === 0) {
-        promptSuffix = "Extract the job title as 'role' (make it sound highly professional) and the workplace as 'company'.";
+        promptSuffix = "Extract the job title as 'role' (make it highly professional) and the workplace as 'company'.";
     } else if (step === 1) {
         promptSuffix = "ENHANCE the user's raw tasks into 2-3 highly professional, ATS-friendly bullet points using strong action verbs. Return in 'responsibilities'.";
     } else if (step === 2) {
-        promptSuffix = "Extract tools, vehicles, or technical skills mentioned. Return as a professional array of strings in 'skills'.";
+        promptSuffix = "Extract tools, vehicles, machinery, or technical skills mentioned. Return as an array of strings in 'skills'.";
     } else if (step === 3) {
-        promptSuffix = "ENHANCE the user's proudest moment or solved problem into 1-2 professional, results-oriented bullet points. Return in 'achievements'.";
+        promptSuffix = "Extract TWO things: 1) Enhance proudest moments/problem-solving into 'achievements' bullets. 2) Extract any safety training, licenses, or certificates into 'certifications'.";
     } else if (step === 4) {
-        promptSuffix = "Extract any mentioned safety training, NC II certificates, licenses (e.g., Professional Driver's License), or formal training. Return in 'certifications'.";
-    } else if (step === 5) {
-        promptSuffix = "Extract the interpersonal or teamwork skills mentioned (e.g., 'Team Player', 'Conflict Resolution', 'Time Management'). Return in 'softSkills'.";
+        promptSuffix = "Extract interpersonal, teamwork, pressure-handling, or work-ethic skills mentioned. Return in 'softSkills'.";
     }
 
     const prompt = `

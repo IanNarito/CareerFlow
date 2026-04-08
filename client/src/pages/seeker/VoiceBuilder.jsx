@@ -5,14 +5,13 @@ import {
   Briefcase, Wrench, Sparkles, Loader2, User as UserIcon, Mail, Phone, Award, ShieldCheck
 } from 'lucide-react';
 
-// --- NEW: 6-STEP COMPREHENSIVE INTERVIEW ---
+// --- NEW: 5-STEP BROAD INTERVIEW ---
 const INTERVIEW_STEPS = [
-  { id: 0, en: "What was your most recent job and where did you work?", tl: "Ano ang huling trabaho mo at saan ka nagtrabaho?" },
-  { id: 1, en: "What did you do there every day?", tl: "Anu-ano ang mga ginagawa mo araw-araw dun?" },
-  { id: 2, en: "What tools, vehicles, or equipment do you know how to use?", tl: "Anong mga sasakyan o gamit ang kaya mong paandarin?" },
-  { id: 3, en: "Can you share a time you did a great job or solved a problem?", tl: "May nagawa ka bang maganda o naayos na problema sa trabaho mo?" },
-  { id: 4, en: "Do you have any licenses, safety training, or TESDA/NC II certificates?", tl: "Mayroon ka bang lisensya, safety training, o TESDA certs?" },
-  { id: 5, en: "How are you when working with a team or under pressure?", tl: "Paano ka makisama sa katrabaho o pag marami ang ginagawa?" }
+  { id: 0, en: "Tell me about your most recent job role and the company you worked for.", tl: "Ikwento mo ang huling trabaho mo at ang kumpanyang pinasukan mo." },
+  { id: 1, en: "Describe your main daily tasks and your biggest responsibilities.", tl: "Ano ang mga pangunahing ginagawa at responsibilidad mo araw-araw?" },
+  { id: 2, en: "What specific tools, machinery, or technical skills are you proficient in?", tl: "Anong mga gamit, makina, o technical skills ang magaling mong gamitin?" },
+  { id: 3, en: "Share a proud achievement, a problem you solved, or any licenses/certifications you hold.", tl: "Mayroon ka bang maipagmamalaking nagawa, naayos na problema, o mga lisensya at certificates?" },
+  { id: 4, en: "How do you handle teamwork, pressure, or ensuring safety in the workplace?", tl: "Paano ka makisama sa team, humarap sa pressure, o sumunod sa safety rules?" }
 ];
 
 const VoiceBuilder = () => {
@@ -26,7 +25,6 @@ const VoiceBuilder = () => {
 
   const savedUser = JSON.parse(localStorage.getItem('user'));
   
-  // Expanded State
   const [resumeData, setResumeData] = useState({
     name: savedUser?.username || "Applicant", 
     email: savedUser?.email || "email@example.com",
@@ -96,6 +94,7 @@ const VoiceBuilder = () => {
 
       setTranscript("");
       
+      // Advance to next step or finish
       if (step < INTERVIEW_STEPS.length - 1) {
         setStep(prev => prev + 1);
       } else {
@@ -114,21 +113,20 @@ const VoiceBuilder = () => {
     setIsSaving(true);
     const userId = savedUser?.id || savedUser?.user_id;
 
-    // --- SMART FORMATTING FOR DATABASE ---
-    // We combine the rich text into a single beautifully formatted string for the DB `description` column
+    // --- FIXED: FORMATTING WITHOUT MARKDOWN ASTERISKS ---
+    // Uses clean uppercase headers so the Resume.jsx page prints perfectly.
     let compiledDescription = `Highly capable ${resumeData.role || 'Professional'} with hands-on experience at ${resumeData.company || 'various companies'}. Proven ability to maintain safety standards and deliver quality results.\n\n`;
     
     if (resumeData.responsibilities.length > 0) {
-      compiledDescription += `**KEY RESPONSIBILITIES:**\n${resumeData.responsibilities.map(r => `• ${r}`).join('\n')}\n\n`;
+      compiledDescription += `PROFESSIONAL RESPONSIBILITIES:\n${resumeData.responsibilities.map(r => `• ${r}`).join('\n')}\n\n`;
     }
     if (resumeData.achievements.length > 0) {
-      compiledDescription += `**KEY ACHIEVEMENTS:**\n${resumeData.achievements.map(a => `• ${a}`).join('\n')}\n\n`;
+      compiledDescription += `KEY ACHIEVEMENTS:\n${resumeData.achievements.map(a => `• ${a}`).join('\n')}\n\n`;
     }
     if (resumeData.certifications.length > 0) {
-      compiledDescription += `**CERTIFICATIONS & LICENSES:**\n${resumeData.certifications.map(c => `• ${c}`).join('\n')}`;
+      compiledDescription += `CERTIFICATIONS & LICENSES:\n${resumeData.certifications.map(c => `• ${c}`).join('\n')}`;
     }
 
-    // Combine hard skills and soft skills together for the `skills` column
     const allSkills = [...resumeData.skills, ...resumeData.softSkills].join(', ');
 
     try {
@@ -162,7 +160,7 @@ const VoiceBuilder = () => {
         </button>
         <div className="flex gap-1.5 items-center">
           {INTERVIEW_STEPS.map((s, i) => (
-            <div key={i} className={`w-6 sm:w-8 h-2 rounded-full transition-colors duration-500 ${i <= step && step !== 99 ? 'bg-blue-500' : 'bg-slate-800'}`}></div>
+            <div key={i} className={`w-8 sm:w-12 h-2 rounded-full transition-colors duration-500 ${i <= step && step !== 99 ? 'bg-blue-500' : 'bg-slate-800'}`}></div>
           ))}
         </div>
         <div className="px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-lg text-blue-400 text-xs font-bold flex items-center gap-2">
@@ -277,7 +275,6 @@ const VoiceBuilder = () => {
                 ) : <p className="text-slate-400 italic text-sm">Waiting for job history...</p>}
               </section>
 
-              {/* NEW SECTION: Achievements */}
               {resumeData.achievements.length > 0 && (
                 <section className="animate-in fade-in">
                   <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 border-b-2 border-slate-200 pb-2 mb-4 flex items-center gap-2"><Award size={16} className="text-blue-600"/> Key Achievements</h3>
@@ -287,7 +284,6 @@ const VoiceBuilder = () => {
                 </section>
               )}
 
-              {/* NEW SECTION: Certifications */}
               {resumeData.certifications.length > 0 && (
                 <section className="animate-in fade-in">
                   <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 border-b-2 border-slate-200 pb-2 mb-4 flex items-center gap-2"><ShieldCheck size={16} className="text-green-600"/> Licenses & Training</h3>
