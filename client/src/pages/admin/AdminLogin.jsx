@@ -2,23 +2,65 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ShieldCheck, Lock, Mail, KeyRound, 
-  Eye, EyeOff, AlertTriangle, ArrowRight
+  Eye, EyeOff, AlertTriangle, ArrowRight, Loader2
 } from 'lucide-react';
 
 const AdminLogin = () => {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     token: ''
   });
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    // In a real app, you would validate credentials and the 2FA token here.
-    // For this prototype, we will route directly to the Admin Dashboard.
-    navigate('/admin');
+    setIsLoading(true);
+    setErrorMsg("");
+
+    // Quick frontend validation for the 2FA token length
+    if (formData.token.length !== 6) {
+      setErrorMsg("Invalid token. Please enter the 6-digit authenticator code.");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      // Connect to your existing backend login route
+      const response = await fetch('http://localhost:5000/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email: formData.email, 
+          password: formData.password 
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // STRICT ROLE CHECK: Only allow Super Admins or admins
+        if (data.role === 'Super Admin' || data.role === 'admin') {
+          // Save session
+          localStorage.setItem('user', JSON.stringify(data));
+          navigate('/admin');
+        } else {
+          // Kick out standard job seekers and HRs
+          setErrorMsg("SECURITY ALERT: This account lacks administrative privileges. Your attempt has been logged.");
+        }
+      } else {
+        setErrorMsg(data.error || "Invalid email or master password.");
+      }
+    } catch (err) {
+      console.error("Admin Login Error:", err);
+      setErrorMsg("Failed to connect to the secure authentication server.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -51,6 +93,12 @@ const AdminLogin = () => {
         <div className="bg-white rounded-3xl p-8 shadow-2xl">
           <form onSubmit={handleLogin} className="space-y-5">
             
+            {errorMsg && (
+              <div className="bg-red-50 text-red-600 text-sm font-bold p-3 rounded-lg text-center border border-red-200">
+                {errorMsg}
+              </div>
+            )}
+
             {/* Email Field */}
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Admin Email</label>
@@ -104,7 +152,10 @@ const AdminLogin = () => {
                   maxLength="6"
                   placeholder="000000"
                   value={formData.token}
-                  onChange={(e) => setFormData({...formData, token: e.target.value})}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, ''); // Only allow numbers
+                    setFormData({...formData, token: val});
+                  }}
                   className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white transition-colors font-mono font-bold text-slate-900 tracking-[0.3em] text-center"
                 />
               </div>
@@ -113,9 +164,10 @@ const AdminLogin = () => {
             {/* Submit Button */}
             <button 
               type="submit" 
-              className="w-full py-3.5 bg-slate-950 text-white font-bold rounded-xl hover:bg-red-600 transition-all shadow-lg flex items-center justify-center gap-2 mt-4 group"
+              disabled={isLoading}
+              className="w-full py-3.5 bg-slate-950 text-white font-bold rounded-xl hover:bg-red-600 transition-all shadow-lg flex items-center justify-center gap-2 mt-4 group disabled:opacity-70"
             >
-              Authenticate Securely <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+              {isLoading ? <Loader2 size={18} className="animate-spin" /> : <>Authenticate Securely <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" /></>}
             </button>
           </form>
         </div>

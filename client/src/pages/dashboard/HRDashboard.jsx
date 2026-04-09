@@ -1,15 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, Briefcase, Calendar as CalendarIcon, 
   Settings, Bell, Search, Plus, 
   CheckCircle2, Clock, MapPin, Building2, ChevronDown,
-  Filter, Mail, ExternalLink, Loader2, XCircle, MessageSquare, Send
+  Filter, Mail, ExternalLink, Loader2, XCircle, MessageSquare, Send, LogOut
 } from 'lucide-react';
 
 const HRDashboard = () => {
   const navigate = useNavigate();
-  const scrollRef = useRef(null);
   const [hrProfile, setHrProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   
@@ -20,15 +19,18 @@ const HRDashboard = () => {
     hiredTotal: 0
   });
   const [rejectedCandidates, setRejectedCandidates] = useState([]);
-
-  // --- HR MESSAGES STATES ---
   const [conversations, setConversations] = useState([]);
-  const [activeChatId, setActiveChatId] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [messageInput, setMessageInput] = useState("");
 
   const savedUser = JSON.parse(localStorage.getItem('user'));
   const actualId = savedUser?.id || savedUser?.user_id;
+
+  // --- LOGOUT HANDLER ---
+  const handleLogout = () => {
+    if(window.confirm("Are you sure you want to log out?")) {
+      localStorage.removeItem('user');
+      navigate('/login');
+    }
+  };
 
   useEffect(() => {
     if (!savedUser || savedUser.role !== 'hr') {
@@ -71,95 +73,35 @@ const HRDashboard = () => {
     } else {
       setLoading(false);
     }
-  }, [navigate]);
+  }, [navigate, actualId, savedUser]);
 
-  // --- HR MESSAGES SYNC LOGIC ---
+  // --- OPTIMIZED MESSAGES SYNC (For Badge Count Only) ---
   useEffect(() => {
-    const syncMessages = async () => {
+    const fetchInboxCount = async () => {
       if (!actualId) return;
-
       try {
         const res = await fetch(`http://localhost:5000/api/messages/inbox/${actualId}`);
-        const apiInbox = res.ok ? await res.json() : [];
-        const allLocal = JSON.parse(localStorage.getItem('careerflow_messages') || '[]');
-
-        const grouped = {};
-        apiInbox.forEach(c => {
-          const cid = String(c.user_id || c.id);
-          grouped[cid] = { id: cid, name: c.name || "Applicant", lastMessage: c.lastMessage, time: c.time, role: c.role };
-        });
-
-        allLocal.forEach(m => {
-          const isMeSender = String(m.sender_id) === String(actualId);
-          const isMeReceiver = String(m.receiver_id) === String(actualId);
-
-          if (isMeSender || isMeReceiver) {
-            const otherId = isMeSender ? String(m.receiver_id) : String(m.sender_id);
-            const otherName = isMeSender ? (m.receiver_name || "Applicant") : (m.sender_name || "Applicant");
-
-            if (!grouped[otherId] || new Date(m.created_at) > new Date(grouped[otherId].time)) {
-              grouped[otherId] = {
-                id: otherId,
-                name: otherName,
-                lastMessage: m.message_text,
-                time: m.created_at,
-                role: m.job_title || "Job Applicant"
-              };
-            }
-          }
-        });
-
-        const final = Object.values(grouped).sort((a, b) => new Date(b.time) - new Date(a.time));
-        setConversations(final);
-
-        if (activeChatId) {
-          const histRes = await fetch(`http://localhost:5000/api/messages/history/${actualId}/${activeChatId}`);
-          const apiHistory = histRes.ok ? await histRes.json() : [];
-          const localHistory = allLocal.filter(m => 
-            (String(m.sender_id) === String(actualId) && String(m.receiver_id) === String(activeChatId)) ||
-            (String(m.sender_id) === String(activeChatId) && String(m.receiver_id) === String(actualId))
-          );
-          const combined = [
-            ...apiHistory.map(m => ({...m, u_id: `api-${m.id}`})),
-            ...localHistory.map(m => ({...m, u_id: `br-${m.message_id || m.created_at}`}))
-          ].reduce((acc, curr) => { if (!acc.find(i => i.u_id === curr.u_id)) acc.push(curr); return acc; }, []);
-          setMessages(combined.sort((a, b) => new Date(a.created_at || a.time) - new Date(b.created_at || b.time)));
+        if (res.ok) {
+          const apiInbox = await res.json();
+          // Filter unique conversations for the badge
+          const uniqueConversations = apiInbox.reduce((acc, current) => {
+            const x = acc.find(item => (item.user_id || item.id) === (current.user_id || current.id));
+            if (!x) return acc.concat([current]);
+            return acc;
+          }, []);
+          setConversations(uniqueConversations);
         }
-      } catch (err) { console.error(err); }
+      } catch (err) { 
+        console.error("Inbox fetch error:", err); 
+      }
     };
 
-    syncMessages();
-    window.addEventListener('storage', syncMessages);
-    const interval = setInterval(syncMessages, 3000);
-    return () => { clearInterval(interval); window.removeEventListener('storage', syncMessages); };
-  }, [actualId, activeChatId]);
+    fetchInboxCount();
+    const interval = setInterval(fetchInboxCount, 10000); // Check every 10 seconds
+    return () => clearInterval(interval);
+  }, [actualId]);
 
-  useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages]);
-
-  const handleSendMessage = async (e) => {
-    e.preventDefault();
-    if (!messageInput.trim() || !activeChatId) return;
-    const activeChat = conversations.find(c => String(c.id) === String(activeChatId));
-    const newMessage = {
-      message_id: Date.now(),
-      sender_id: actualId,
-      sender_name: hrProfile?.company_name || "HR",
-      receiver_id: activeChatId,
-      receiver_name: activeChat?.name || "Applicant",
-      message_text: messageInput,
-      created_at: new Date().toISOString(),
-      job_title: activeChat?.role || "Inquiry"
-    };
-    setMessages(prev => [...prev, {...newMessage, u_id: `temp-${Date.now()}`}]);
-    const local = JSON.parse(localStorage.getItem('careerflow_messages') || '[]');
-    localStorage.setItem('careerflow_messages', JSON.stringify([...local, newMessage]));
-    setMessageInput("");
-    try { await fetch('http://localhost:5000/api/messages/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sender_id: actualId, receiver_id: activeChatId, message_text: newMessage.message_text }) }); } catch (err) {}
-  };
-
-  if (loading) return <div className="p-20 text-center font-bold text-slate-600">Loading HR Workspace...</div>;
+  if (loading) return <div className="p-20 text-center flex flex-col items-center justify-center font-bold text-slate-600"><Loader2 size={40} className="animate-spin mb-4 text-indigo-600"/>Loading HR Workspace...</div>;
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex">
@@ -182,8 +124,15 @@ const HRDashboard = () => {
           <SidebarLink icon={<Building2 size={20}/>} label="Company Profile" to="/hr/profile" />
         </nav>
 
-        <div className="p-4 border-t border-slate-800">
+        <div className="p-4 border-t border-slate-800 space-y-2">
           <SidebarLink icon={<Settings size={20}/>} label="Settings" to="/hr/settings"/>
+          <button 
+            onClick={handleLogout} 
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-bold text-slate-400 hover:bg-red-950 hover:text-red-500"
+          >
+            <LogOut size={20} />
+            <span>Log Out</span>
+          </button>
         </div>
       </aside>
 
@@ -217,7 +166,7 @@ const HRDashboard = () => {
                   {hrProfile?.industry || 'Employer'}
                 </p>
               </div>
-              <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold">
+              <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold uppercase">
                 {hrProfile?.company_name?.charAt(0) || 'C'}
               </div>
             </div>
@@ -283,7 +232,7 @@ const HRDashboard = () => {
                   rejectedCandidates.map((cand) => (
                     <div key={cand.app_id} className="p-5 hover:bg-slate-50 transition-colors flex items-center justify-between group">
                       <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center font-black text-xs border border-red-100">
+                        <div className="w-10 h-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center font-black text-xs border border-red-100 uppercase">
                           {cand.first_name?.[0]}{cand.last_name?.[0]}
                         </div>
                         <div>

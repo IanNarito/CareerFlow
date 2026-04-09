@@ -1,73 +1,65 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   ShieldCheck, Users, Building2, FileText, 
   Settings, Bell, Search, Filter, 
   CheckCircle2, XCircle, AlertCircle, Activity, 
-  Database, FileImage, ExternalLink, MapPin, Check
+  Database, FileImage, ExternalLink, MapPin, Check, Loader2
 } from 'lucide-react';
-
-// --- MOCK VERIFICATION DATA ---
-const INITIAL_REQUESTS = [
-  { 
-    id: "REQ-091", 
-    company: "Aboitiz Construction", 
-    type: "SEC Registration", 
-    submitted: "2 hours ago", 
-    status: "Pending",
-    details: {
-      address: "Cebu City, Cebu",
-      owner: "Erramon Aboitiz",
-      docId: "SEC-2026-9912A",
-      notes: "Clear copy. Matches company profile address."
-    }
-  },
-  { 
-    id: "REQ-092", 
-    company: "Manila Water", 
-    type: "Mayor's Permit", 
-    submitted: "5 hours ago", 
-    status: "Pending",
-    details: {
-      address: "Quezon City, Metro Manila",
-      owner: "J. Zobel",
-      docId: "MP-QC-26-104",
-      notes: "Valid until Dec 31, 2026."
-    }
-  },
-  { 
-    id: "REQ-093", 
-    company: "Jollibee Foods Corp (Logistics)", 
-    type: "DTI Certificate", 
-    submitted: "1 day ago", 
-    status: "Under Review",
-    details: {
-      address: "Pasig City, Metro Manila",
-      owner: "T. Caktiong",
-      docId: "DTI-99381-XYZ",
-      notes: "Image is slightly blurry, waiting for re-upload."
-    }
-  },
-  { 
-    id: "REQ-094", 
-    company: "D.M. Consunji, Inc.", 
-    type: "DOLE Clearance", 
-    submitted: "1 day ago", 
-    status: "Approved",
-    details: {
-      address: "Makati City, Metro Manila",
-      owner: "I. Consunji",
-      docId: "DOLE-NCR-1122",
-      notes: "All labor standards met. Approved by Admin SA."
-    }
-  },
-];
 
 const AdminVerifications = () => {
   const navigate = useNavigate();
-  const [requests, setRequests] = useState(INITIAL_REQUESTS);
-  const [selectedReqId, setSelectedReqId] = useState(INITIAL_REQUESTS[0].id);
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedReqId, setSelectedReqId] = useState(null);
   const [filter, setFilter] = useState('Pending');
+
+  // --- FETCH REAL HR VERIFICATIONS ---
+  useEffect(() => {
+    const savedUser = localStorage.getItem('user');
+    if (!savedUser) {
+      navigate('/admin/login');
+      return;
+    }
+    const parsedUser = JSON.parse(savedUser);
+    if (parsedUser.role !== 'Super Admin' && parsedUser.role !== 'admin') {
+      navigate('/admin/login');
+      return;
+    }
+    const fetchVerifications = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/admin/verifications');
+        if (res.ok) {
+          const data = await res.json();
+          // Map DB structure to our UI structure
+          const formattedData = data.map(req => ({
+            id: req.id,
+            company: req.company || "Unknown Company",
+            type: "Business Registration", // Placeholder until file uploads are added
+            submitted: "Recently",
+            status: req.status || "Pending",
+            details: {
+              address: req.address || "No address provided",
+              owner: `${req.first_name || ''} ${req.last_name || ''}`.trim() || "HR Representative",
+              docId: `DOC-${req.id}-${Math.floor(Math.random() * 10000)}`,
+              notes: "Awaiting admin review."
+            }
+          }));
+          
+          setRequests(formattedData);
+          if (formattedData.length > 0) {
+            setSelectedReqId(formattedData[0].id);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch verifications:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchVerifications();
+  }, []);
 
   const selectedRequest = requests.find(r => r.id === selectedReqId);
 
@@ -76,14 +68,31 @@ const AdminVerifications = () => {
     ? requests 
     : requests.filter(r => r.status === filter);
 
-  // CRUD: Update Status
-  const handleUpdateStatus = (id, newStatus) => {
-    setRequests(requests.map(req => 
-      req.id === id ? { ...req, status: newStatus } : req
-    ));
-    // Auto-select the next pending request to save clicks
-    const nextPending = requests.find(r => r.id !== id && r.status === 'Pending');
-    if (nextPending) setSelectedReqId(nextPending.id);
+  // --- CRUD: UPDATE STATUS IN DATABASE ---
+  const handleUpdateStatus = async (id, newStatus) => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/admin/users/${id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (res.ok) {
+        // Update local UI state
+        setRequests(requests.map(req => 
+          req.id === id ? { ...req, status: newStatus } : req
+        ));
+        
+        // Auto-select the next pending request to save clicks!
+        const nextPending = requests.find(r => r.id !== id && r.status === 'Pending');
+        if (nextPending) setSelectedReqId(nextPending.id);
+      } else {
+        alert("Failed to update status in database.");
+      }
+    } catch (err) {
+      console.error("Status Update Error:", err);
+      alert("Network error.");
+    }
   };
 
   return (
@@ -123,7 +132,6 @@ const AdminVerifications = () => {
           <div className="flex items-center gap-5">
             <button className="relative p-2 text-slate-400 hover:text-slate-900 transition-colors">
               <Bell size={22} />
-              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
             </button>
             <div className="h-8 w-px bg-slate-200 hidden sm:block"></div>
             <div className="flex items-center gap-3 cursor-pointer pl-2">
@@ -144,7 +152,7 @@ const AdminVerifications = () => {
             
             {/* Filters */}
             <div className="p-4 border-b border-slate-100 flex gap-2 overflow-x-auto">
-              {['Pending', 'Under Review', 'Approved', 'All'].map(f => (
+              {['Pending', 'Active', 'Suspended', 'All'].map(f => (
                 <button 
                   key={f}
                   onClick={() => setFilter(f)}
@@ -157,34 +165,39 @@ const AdminVerifications = () => {
 
             {/* List */}
             <div className="flex-1 overflow-y-auto">
-              {filteredRequests.map(req => (
-                <button 
-                  key={req.id}
-                  onClick={() => setSelectedReqId(req.id)}
-                  className={`w-full text-left p-5 border-b border-slate-100 transition-all flex flex-col gap-3 relative ${selectedReqId === req.id ? 'bg-red-50/30' : 'hover:bg-slate-50 bg-white'}`}
-                >
-                  {selectedReqId === req.id && <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-600"></div>}
-                  
-                  <div className="flex justify-between items-start">
-                    <h4 className={`font-bold text-slate-900 truncate pr-2 ${selectedReqId === req.id ? 'text-red-700' : ''}`}>
-                      {req.company}
-                    </h4>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0">{req.submitted}</span>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
-                      {req.type}
-                    </p>
-                    <StatusBadge status={req.status} />
-                  </div>
-                </button>
-              ))}
-
-              {filteredRequests.length === 0 && (
-                <div className="p-8 text-center text-slate-500 font-medium">
-                  No {filter.toLowerCase()} requests found.
+              {loading ? (
+                <div className="p-10 text-center flex flex-col items-center text-slate-400 font-bold">
+                  <Loader2 size={32} className="animate-spin mb-3 text-red-500" /> Loading Queue...
                 </div>
+              ) : filteredRequests.length === 0 ? (
+                <div className="p-8 text-center text-slate-500 font-medium flex flex-col items-center">
+                   <CheckCircle2 size={40} className="text-green-500 mb-3"/>
+                   <p>No {filter.toLowerCase()} requests found.</p>
+                </div>
+              ) : (
+                filteredRequests.map(req => (
+                  <button 
+                    key={req.id}
+                    onClick={() => setSelectedReqId(req.id)}
+                    className={`w-full text-left p-5 border-b border-slate-100 transition-all flex flex-col gap-3 relative ${selectedReqId === req.id ? 'bg-red-50/30' : 'hover:bg-slate-50 bg-white'}`}
+                  >
+                    {selectedReqId === req.id && <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-600"></div>}
+                    
+                    <div className="flex justify-between items-start">
+                      <h4 className={`font-bold text-slate-900 truncate pr-2 ${selectedReqId === req.id ? 'text-red-700' : ''}`}>
+                        {req.company}
+                      </h4>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0">{req.submitted}</span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                        {req.type}
+                      </p>
+                      <StatusBadge status={req.status} />
+                    </div>
+                  </button>
+                ))
               )}
             </div>
           </div>
@@ -198,12 +211,14 @@ const AdminVerifications = () => {
                   <div>
                     <div className="flex items-center gap-3 mb-1">
                       <h2 className="text-2xl font-extrabold text-slate-900">{selectedRequest.company}</h2>
-                      {selectedRequest.status === 'Approved' && <ShieldCheck size={20} className="text-green-500" />}
+                      {selectedRequest.status === 'Active' && <ShieldCheck size={20} className="text-green-500" />}
                     </div>
                     <div className="flex items-center gap-4 text-sm font-medium text-slate-500">
                       <span className="flex items-center gap-1"><MapPin size={16} className="text-slate-400"/> {selectedRequest.details.address}</span>
                       <span>•</span>
-                      <span>ID: {selectedRequest.id}</span>
+                      <span>Rep: {selectedRequest.details.owner}</span>
+                      <span>•</span>
+                      <span>User ID: {selectedRequest.id}</span>
                     </div>
                   </div>
                   <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-lg hover:bg-slate-50 shadow-sm transition-colors">
@@ -220,6 +235,7 @@ const AdminVerifications = () => {
                       <FileImage size={64} className="mb-4 text-slate-300 opacity-50" />
                       <p className="font-bold text-slate-900 text-lg">{selectedRequest.type}</p>
                       <p className="text-sm font-medium">Doc ID: {selectedRequest.details.docId}</p>
+                      <p className="text-xs text-slate-400 mt-4">(Simulated Document Viewer - Connect Cloud Storage to view real PDFs)</p>
                       <button className="mt-6 px-6 py-2 bg-slate-900 text-white font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
                         Expand Full Screen
                       </button>
@@ -242,45 +258,33 @@ const AdminVerifications = () => {
                         </label>
                         <label className="flex items-start gap-3 cursor-pointer">
                           <input type="checkbox" className="mt-1 rounded border-slate-300 text-red-600 focus:ring-red-600" />
-                          <span className="text-sm font-medium text-slate-700">Document is currently valid (not expired).</span>
+                          <span className="text-sm font-medium text-slate-700">Document is currently valid.</span>
                         </label>
                       </div>
                     </div>
 
-                    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-                      <h3 className="font-bold text-slate-900 mb-4 border-b border-slate-100 pb-2">Admin Notes</h3>
-                      <p className="text-sm text-slate-600 leading-relaxed italic mb-4">
-                        "{selectedRequest.details.notes}"
-                      </p>
-                      <textarea 
-                        placeholder="Add internal note..." 
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                        rows="3"
-                      ></textarea>
-                    </div>
-
                     {/* Decision Buttons */}
-                    {selectedRequest.status === 'Pending' || selectedRequest.status === 'Under Review' ? (
+                    {selectedRequest.status === 'Pending' ? (
                       <div className="flex flex-col gap-3">
                         <button 
-                          onClick={() => handleUpdateStatus(selectedRequest.id, 'Approved')}
+                          onClick={() => handleUpdateStatus(selectedRequest.id, 'Active')}
                           className="w-full py-3.5 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl shadow-md transition-colors flex items-center justify-center gap-2"
                         >
-                          <Check size={20} /> Approve Verification
+                          <Check size={20} /> Approve Employer
                         </button>
                         <button 
-                          onClick={() => handleUpdateStatus(selectedRequest.id, 'Rejected')}
+                          onClick={() => handleUpdateStatus(selectedRequest.id, 'Suspended')}
                           className="w-full py-3.5 bg-white border-2 border-red-200 text-red-600 hover:bg-red-50 font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
                         >
-                          <XCircle size={20} /> Reject Document
+                          <XCircle size={20} /> Reject / Suspend
                         </button>
                       </div>
                     ) : (
-                      <div className={`p-4 rounded-xl border flex flex-col items-center justify-center text-center gap-2 ${selectedRequest.status === 'Approved' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
-                        {selectedRequest.status === 'Approved' ? <CheckCircle2 size={32} className="text-green-600"/> : <XCircle size={32} className="text-red-600"/>}
+                      <div className={`p-4 rounded-xl border flex flex-col items-center justify-center text-center gap-2 ${selectedRequest.status === 'Active' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+                        {selectedRequest.status === 'Active' ? <CheckCircle2 size={32} className="text-green-600"/> : <XCircle size={32} className="text-red-600"/>}
                         <div>
-                          <p className="font-bold">This request is {selectedRequest.status}</p>
-                          <button className="text-xs font-bold underline mt-1 hover:text-slate-900">Undo Decision</button>
+                          <p className="font-bold">This employer is {selectedRequest.status}</p>
+                          <button onClick={() => handleUpdateStatus(selectedRequest.id, 'Pending')} className="text-xs font-bold underline mt-1 hover:text-slate-900">Undo Decision</button>
                         </div>
                       </div>
                     )}
@@ -317,14 +321,14 @@ const SidebarLink = ({ icon, label, badge, active, to = "#" }) => (
 
 const StatusBadge = ({ status }) => {
   switch (status) {
-    case 'Approved':
+    case 'Active':
       return <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-green-600"><CheckCircle2 size={12}/> Approved</span>;
-    case 'Rejected':
+    case 'Suspended':
       return <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-red-600"><XCircle size={12}/> Rejected</span>;
-    case 'Under Review':
-      return <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-blue-600"><AlertCircle size={12}/> In Progress</span>;
-    default:
+    case 'Pending':
       return <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-yellow-600"><AlertCircle size={12}/> Pending</span>;
+    default:
+      return <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-600">{status}</span>;
   }
 };
 

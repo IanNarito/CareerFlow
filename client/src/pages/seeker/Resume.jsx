@@ -15,7 +15,6 @@ const Resume = () => {
   const userId = currentUser?.id || currentUser?.user_id;
 
   // --- BULLETPROOF NAME FALLBACKS ---
-  // This prevents the white-screen crash if the session data is weird
   const safeUserName = currentUser?.username || currentUser?.first_name || "Applicant";
   const displayFirstName = profileData?.first_name || safeUserName.split(' ')[0] || "Applicant";
   const displayLastName = profileData?.last_name || safeUserName.split(' ').slice(1).join(' ') || "";
@@ -46,7 +45,6 @@ const Resume = () => {
     fetchProfile();
   }, [userId, navigate, currentUser]);
 
-  // Triggers the browser's native PDF/Print engine
   const handleDownloadPDF = () => {
     window.print();
   };
@@ -122,17 +120,30 @@ const Resume = () => {
                   <Edit size={20} />
                 </Link>
 
-                {/* RESUME HEADER */}
-                <div className="border-b-[8px] border-slate-900 p-10 sm:p-12 bg-slate-50 print:bg-white">
-                  <h1 className="text-4xl sm:text-5xl font-black text-slate-900 mb-4 tracking-tight uppercase">
-                    {displayFirstName} {displayLastName}
-                  </h1>
-                  
-                  <div className="flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold text-slate-600 print:text-black">
-                    {profileData?.email && <span className="flex items-center gap-1.5"><Mail size={16} className="text-slate-400 print:text-black"/> {profileData.email}</span>}
-                    {profileData?.phone && <span className="flex items-center gap-1.5"><Phone size={16} className="text-slate-400 print:text-black"/> {profileData.phone}</span>}
-                    {profileData?.location && <span className="flex items-center gap-1.5"><MapPin size={16} className="text-slate-400 print:text-black"/> {profileData.location}</span>}
+                {/* RESUME HEADER WITH PROFILE PICTURE */}
+                <div className="border-b-[8px] border-slate-900 p-10 sm:p-12 bg-slate-50 print:bg-white flex flex-col-reverse sm:flex-row justify-between items-start sm:items-center gap-6">
+                  <div>
+                    <h1 className="text-4xl sm:text-5xl font-black text-slate-900 mb-4 tracking-tight uppercase">
+                      {displayFirstName} {displayLastName}
+                    </h1>
+                    
+                    <div className="flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold text-slate-600 print:text-black">
+                      {profileData?.email && <span className="flex items-center gap-1.5"><Mail size={16} className="text-slate-400 print:text-black"/> {profileData.email}</span>}
+                      {profileData?.phone && <span className="flex items-center gap-1.5"><Phone size={16} className="text-slate-400 print:text-black"/> {profileData.phone}</span>}
+                      {profileData?.location && <span className="flex items-center gap-1.5"><MapPin size={16} className="text-slate-400 print:text-black"/> {profileData.location}</span>}
+                    </div>
                   </div>
+
+                  {/* DISPLAY THE FACE SCAN PICTURE HERE IF IT EXISTS */}
+                  {profileData?.profile_picture && (
+                    <div className="w-28 h-28 sm:w-32 sm:h-32 shrink-0 rounded-2xl overflow-hidden border-4 border-white shadow-md bg-white">
+                      <img 
+                        src={profileData.profile_picture} 
+                        alt="Profile" 
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* RESUME BODY */}
@@ -142,7 +153,6 @@ const Resume = () => {
                   {profileData?.description && (
                     <section>
                       <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 border-b-2 border-slate-200 pb-2 mb-4 print:border-black">Professional Summary</h3>
-                      {/* FIXED: Added whitespace-pre-line to properly render the \n\n breaks from the AI */}
                       <p className="text-base leading-relaxed font-medium text-slate-700 print:text-black whitespace-pre-line">
                         {profileData.description}
                       </p>
@@ -152,7 +162,7 @@ const Resume = () => {
                   {/* Skills (AI Generated) */}
                   {profileData?.skills && (
                     <section>
-                      <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 border-b-2 border-slate-200 pb-2 mb-4 print:border-black">Core Skills & Equipment</h3>
+                      <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 border-b-2 border-slate-200 pb-2 mb-4 print:border-black">Core Skills & Strengths</h3>
                       <div className="flex flex-wrap gap-2">
                         {profileData.skills.split(',').map((skill, i) => (
                           <span key={i} className="bg-slate-100 border border-slate-200 print:border-slate-400 text-slate-800 font-bold px-3 py-1.5 rounded-lg text-xs uppercase tracking-wider">

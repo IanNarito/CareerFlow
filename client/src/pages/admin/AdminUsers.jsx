@@ -1,33 +1,62 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   ShieldCheck, Users, Building2, FileText, 
   Settings, Bell, Search, Plus, Filter, 
   MoreVertical, Edit3, Trash2, Ban, 
-  CheckCircle2, X, AlertTriangle, Activity, Database
+  CheckCircle2, X, AlertTriangle, Activity, Database, Loader2
 } from 'lucide-react';
-
-// --- MOCK USER DATA ---
-const INITIAL_USERS = [
-  { id: "USR-001", name: "Ciel A. Valencia", email: "ciel@example.com", role: "Job Seeker", status: "Active", joined: "Oct 12, 2026", avatar: "CV" },
-  { id: "USR-002", name: "Robert Sy", email: "rsy@buildrightph.com", role: "HR Admin", company: "BuildRight Corp", status: "Active", joined: "Sep 05, 2026", avatar: "RS" },
-  { id: "USR-003", name: "Maria Santos", email: "maria.s@gmail.com", role: "Job Seeker", status: "Pending", joined: "Oct 22, 2026", avatar: "MS" },
-  { id: "USR-004", name: "Fake Recruiter Inc.", email: "admin@fakerecruit.com", role: "HR Admin", company: "Unknown", status: "Suspended", joined: "Oct 20, 2026", avatar: "FR" },
-  { id: "USR-005", name: "Juan Perez", email: "jperez@logistics.ph", role: "Job Seeker", status: "Active", joined: "Aug 14, 2026", avatar: "JP" },
-];
 
 const AdminUsers = () => {
   const navigate = useNavigate();
-  const [users, setUsers] = useState(INITIAL_USERS);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
   
-  // Slide-over Edit State (The "Update" in CRUD)
+  // Slide-over Edit State
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // --- CRUD OPERATIONS (Simulated) ---
-  
-  // READ is handled by the table rendering the `users` state
-  
+  // --- FETCH REAL USERS FROM DATABASE ---
+  useEffect(() => {
+    const savedUser = localStorage.getItem('user');
+    if (!savedUser) {
+      navigate('/admin/login');
+      return;
+    }
+    const parsedUser = JSON.parse(savedUser);
+    if (parsedUser.role !== 'Super Admin' && parsedUser.role !== 'admin') {
+      navigate('/admin/login');
+      return;
+    }
+    
+    const fetchUsers = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/admin/users');
+        const data = await res.json();
+        
+        // Format data to match our UI needs
+        const formattedUsers = data.map(u => {
+          // Generate a 2-letter avatar from their name
+          const initials = u.name ? u.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : '??';
+          return {
+            ...u,
+            avatar: initials,
+            status: u.status || 'Active', // Fallback just in case
+            joined: "Recently" // You can replace this with u.created_at if you add a timestamp column
+          };
+        });
+        
+        setUsers(formattedUsers);
+      } catch (err) {
+        console.error("Failed to load users:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUsers();
+  }, []);
+
   const openEditPanel = (user) => {
     setEditingUser({ ...user }); 
     setIsEditOpen(true);
@@ -35,20 +64,50 @@ const AdminUsers = () => {
 
   const closeEditPanel = () => {
     setIsEditOpen(false);
-    setTimeout(() => setEditingUser(null), 300); // Wait for sliding animation
+    setTimeout(() => setEditingUser(null), 300); 
   };
 
-  // UPDATE
-  const handleSaveUser = (e) => {
+  // --- UPDATE USER (PUT) ---
+  const handleSaveUser = async (e) => {
     e.preventDefault();
-    setUsers(users.map(u => u.id === editingUser.id ? editingUser : u));
-    closeEditPanel();
+    setIsSaving(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/admin/users/${editingUser.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editingUser.name,
+          email: editingUser.email,
+          role: editingUser.role,
+          status: editingUser.status
+        })
+      });
+
+      if (res.ok) {
+        // Update UI instantly
+        setUsers(users.map(u => u.id === editingUser.id ? editingUser : u));
+        closeEditPanel();
+      }
+    } catch (err) {
+      alert("Failed to update user.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  // DELETE
-  const handleDeleteUser = (id) => {
-    if(window.confirm("Are you sure you want to permanently delete this user?")) {
-      setUsers(users.filter(u => u.id !== id));
+  // --- DELETE USER (DELETE) ---
+  const handleDeleteUser = async (id) => {
+    if(window.confirm("WARNING: Are you sure you want to permanently delete this user? This will erase all their profiles, applications, and messages!")) {
+      try {
+        const res = await fetch(`http://localhost:5000/api/admin/users/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          // Remove from UI instantly
+          setUsers(users.filter(u => u.id !== id));
+          closeEditPanel();
+        }
+      } catch (err) {
+        alert("Failed to delete user.");
+      }
     }
   };
 
@@ -67,7 +126,7 @@ const AdminUsers = () => {
         <nav className="flex-1 px-4 py-8 space-y-2">
           <SidebarLink icon={<Activity size={20}/>} label="System Overview" to="/admin" />
           <SidebarLink icon={<Users size={20}/>} label="User Management" active to="/admin/users" />
-          <SidebarLink icon={<Building2 size={20}/>} label="Employer Verification" badge={28} to="/admin/verifications" />
+          <SidebarLink icon={<Building2 size={20}/>} label="Employer Verification" to="/admin/verifications" />
           <SidebarLink icon={<FileText size={20}/>} label="Job Moderation" to="/admin/jobs" />
           <SidebarLink icon={<Database size={20}/>} label="Database Backups" to="/admin/database" />
         </nav>
@@ -109,9 +168,6 @@ const AdminUsers = () => {
             <div className="flex flex-col sm:flex-row justify-between gap-4">
               <div className="flex gap-2">
                 <button className="px-4 py-2 bg-slate-900 text-white text-sm font-bold rounded-lg shadow-sm">All Users ({users.length})</button>
-                <button className="px-4 py-2 bg-white border border-slate-200 text-slate-600 hover:text-slate-900 text-sm font-bold rounded-lg shadow-sm transition-colors">Seekers</button>
-                <button className="px-4 py-2 bg-white border border-slate-200 text-slate-600 hover:text-slate-900 text-sm font-bold rounded-lg shadow-sm transition-colors">HR Admins</button>
-                <button className="px-4 py-2 bg-white border border-slate-200 text-red-600 hover:text-red-800 text-sm font-bold rounded-lg shadow-sm transition-colors">Suspended</button>
               </div>
               <div className="flex gap-3">
                 <div className="relative w-64">
@@ -130,7 +186,6 @@ const AdminUsers = () => {
                 <table className="w-full text-left border-collapse min-w-[900px]">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-100">
-                      <th className="py-4 px-6 w-12"><input type="checkbox" className="rounded border-slate-300 text-red-600 focus:ring-red-600"/></th>
                       <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">User Details</th>
                       <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">Role & Entity</th>
                       <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
@@ -139,76 +194,82 @@ const AdminUsers = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {users.map((user) => (
-                      <tr key={user.id} className="hover:bg-slate-50/50 transition-colors group">
-                        
-                        <td className="py-5 px-6"><input type="checkbox" className="rounded border-slate-300 text-red-600 focus:ring-red-600"/></td>
-                        
-                        {/* User Column */}
-                        <td className="py-5 px-6">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 text-slate-600 flex items-center justify-center font-bold text-sm shrink-0">
-                              {user.avatar}
-                            </div>
-                            <div>
-                              <p className="font-bold text-slate-900">{user.name}</p>
-                              <p className="text-xs text-slate-500">{user.email}</p>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Role Column */}
-                        <td className="py-5 px-6">
-                          <span className="font-bold text-slate-700 block mb-0.5">{user.role}</span>
-                          <span className="text-xs text-slate-500">{user.company || "Individual Account"}</span>
-                        </td>
-
-                        {/* Status Column */}
-                        <td className="py-5 px-6">
-                          <UserStatusBadge status={user.status} />
-                        </td>
-
-                        {/* Joined Column */}
-                        <td className="py-5 px-6">
-                          <p className="text-sm font-medium text-slate-600">{user.joined}</p>
-                        </td>
-
-                        {/* Actions Column (CRUD Triggers) */}
-                        <td className="py-5 px-6 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            {/* UPDATE Trigger */}
-                            <button 
-                              onClick={() => openEditPanel(user)}
-                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-2"
-                              title="Edit User"
-                            >
-                              <Edit3 size={18} /> <span className="text-sm font-bold hidden xl:inline">Edit</span>
-                            </button>
-                            {/* DELETE Trigger */}
-                            <button 
-                              onClick={() => handleDeleteUser(user.id)}
-                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" 
-                              title="Delete User"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                            <button className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
-                              <MoreVertical size={18} />
-                            </button>
-                          </div>
+                    
+                    {loading ? (
+                      <tr>
+                        <td colSpan="5" className="py-12 text-center text-slate-400 font-bold">
+                          <Loader2 size={32} className="animate-spin mx-auto mb-2 text-blue-600" />
+                          Loading database records...
                         </td>
                       </tr>
-                    ))}
+                    ) : users.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" className="py-12 text-center text-slate-400 font-bold">No users found.</td>
+                      </tr>
+                    ) : (
+                      users.map((user) => (
+                        <tr key={user.id} className="hover:bg-slate-50/50 transition-colors group">
+                          
+                          {/* User Column */}
+                          <td className="py-5 px-6">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 text-slate-600 flex items-center justify-center font-bold text-sm shrink-0">
+                                {user.avatar}
+                              </div>
+                              <div>
+                                <p className="font-bold text-slate-900">{user.name}</p>
+                                <p className="text-xs text-slate-500">{user.email}</p>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Role Column */}
+                          <td className="py-5 px-6">
+                            <span className="font-bold text-slate-700 block mb-0.5">{user.role}</span>
+                            <span className="text-xs text-slate-500">{user.company || "Individual Account"}</span>
+                          </td>
+
+                          {/* Status Column */}
+                          <td className="py-5 px-6">
+                            <UserStatusBadge status={user.status} />
+                          </td>
+
+                          {/* Joined Column */}
+                          <td className="py-5 px-6">
+                            <p className="text-sm font-medium text-slate-600">{user.joined}</p>
+                          </td>
+
+                          {/* Actions Column (CRUD Triggers) */}
+                          <td className="py-5 px-6 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              {/* UPDATE Trigger */}
+                              <button 
+                                onClick={() => openEditPanel(user)}
+                                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-2"
+                                title="Edit User"
+                              >
+                                <Edit3 size={18} /> <span className="text-sm font-bold hidden xl:inline">Edit</span>
+                              </button>
+                              {/* DELETE Trigger */}
+                              <button 
+                                onClick={() => handleDeleteUser(user.id)}
+                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" 
+                                title="Delete User"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+
                   </tbody>
                 </table>
               </div>
               
               <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between text-sm text-slate-500">
-                <span>Showing 1 to {users.length} of {users.length} entries</span>
-                <div className="flex gap-2">
-                  <button className="px-3 py-1 border border-slate-200 rounded hover:bg-white font-bold">Prev</button>
-                  <button className="px-3 py-1 border border-slate-200 rounded hover:bg-white font-bold">Next</button>
-                </div>
+                <span>Showing {users.length} Database Entries</span>
               </div>
             </div>
 
@@ -285,9 +346,9 @@ const AdminUsers = () => {
                       onChange={(e) => setEditingUser({...editingUser, role: e.target.value})}
                       className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 font-medium text-slate-900"
                     >
-                      <option value="Job Seeker">Job Seeker</option>
-                      <option value="HR Admin">HR Admin (Employer)</option>
-                      <option value="Super Admin">System Administrator</option>
+                      <option value="job_seeker">Job Seeker</option>
+                      <option value="hr">HR Admin (Employer)</option>
+                      <option value="Super Admin">Super Admin</option>
                     </select>
                   </div>
                 </div>
@@ -298,7 +359,7 @@ const AdminUsers = () => {
                     <AlertTriangle size={20} className="text-red-600 shrink-0 mt-0.5" />
                     <div>
                       <p className="text-sm font-bold text-red-900">Account Suspension</p>
-                      <p className="text-xs text-red-700 mt-1 leading-relaxed">Saving this status will immediately revoke the user's login access and hide their active job postings or applications.</p>
+                      <p className="text-xs text-red-700 mt-1 leading-relaxed">Saving this status will immediately revoke the user's login access.</p>
                     </div>
                   </div>
                 )}
@@ -318,8 +379,8 @@ const AdminUsers = () => {
                 <button onClick={closeEditPanel} className="px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
                   Cancel
                 </button>
-                <button form="editUserForm" type="submit" className="px-6 py-2.5 bg-slate-900 text-white text-sm font-bold rounded-lg hover:bg-slate-800 shadow-md transition-colors">
-                  Save Details
+                <button disabled={isSaving} form="editUserForm" type="submit" className="px-6 py-2.5 bg-slate-900 text-white text-sm font-bold rounded-lg hover:bg-slate-800 shadow-md transition-colors disabled:opacity-50">
+                  {isSaving ? 'Saving...' : 'Save Details'}
                 </button>
               </div>
             </div>

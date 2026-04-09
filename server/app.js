@@ -2,13 +2,29 @@ const express = require('express');
 const cors = require('cors');
 const db = require('./db');
 const bcrypt = require('bcryptjs');
+const { spawn } = require('child_process');
+const multer = require('multer'); // <--- ADD THIS
+const path = require('path');     // <--- ADD THIS
 require('dotenv').config();
 
 const app = express();
 
+// --- MULTER IMAGE UPLOAD SETUP ---
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, 'public/uploads/'); // Saves to your existing uploads folder
+    },
+    filename: function (req, file, cb) {
+        cb(null, 'job_' + Date.now() + path.extname(file.originalname));
+    }
+});
+
+const upload = multer({ storage: storage });
+
 // --- MIDDLEWARE ---
 app.use(cors());
 app.use(express.json());
+app.use('/uploads', express.static('public/uploads'));
 
 // --- 1. FETCH PROFILE (The missing piece for your Dashboard) ---
 app.get('/api/hr/profile/:userId', async (req, res) => {
@@ -126,58 +142,116 @@ app.post('/api/complete-onboarding', async (req, res) => {
 });
 
 // --- 5. OTP FEATURES ---
+// --- 5. LIVE OTP FEATURES (SkySMS API) ---
 app.post('/api/send-otp', async (req, res) => {
-    const { userId } = req.body;
-    const otp = Math.floor(100000 + Math.random() * 900000); 
+    const { phoneNumber } = req.body;
+
+    // Auto-format "09123456789" to "+639123456789"
+    let formattedPhone = phoneNumber.trim();
+    if (formattedPhone.startsWith('0')) {
+        formattedPhone = '+63' + formattedPhone.slice(1);
+    }
 
     try {
-        await db.execute('DELETE FROM otp_codes WHERE user_id = ?', [userId]);
-        await db.execute(
-            'INSERT INTO otp_codes (user_id, code, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 5 MINUTE))',
-            [userId, otp]
-        );
-        console.log(`>>> LOG: OTP for User ${userId} is ${otp} <<<`);
-        res.json({ success: true });
+        const response = await fetch('https://skysms.skyio.site/api/v1/otp/send', {
+            method: 'POST',
+            headers: {
+                'X-API-Key': process.env.SKYSMS_API_KEY,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                phone_number: formattedPhone,
+                message: "Your CareerFlow verification code is {{otp}}. Valid for 5 minutes.",
+                expire: 300
+            })
+        });
+
+        if (response.ok) {
+            console.log(`>>> OTP sent successfully to ${formattedPhone} <<<`);
+            res.json({ success: true });
+        } else {
+            const errData = await response.json();
+            console.error("SkySMS Send Error:", errData);
+            res.status(400).json({ error: "Failed to send SMS." });
+        }
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "DB Error" });
+        console.error("API Connection Error:", err);
+        res.status(500).json({ error: "Server connection failed." });
     }
 });
 
 app.post('/api/verify-otp', async (req, res) => {
-    const { userId, code } = req.body;
+    const { code, phoneNumber } = req.body;
+
+    let formattedPhone = phoneNumber.trim();
+    if (formattedPhone.startsWith('0')) {
+        formattedPhone = '+63' + formattedPhone.slice(1);
+    }
+
     try {
-        const [rows] = await db.execute(
-            'SELECT * FROM otp_codes WHERE user_id = ? AND code = ? AND expires_at > NOW()', 
-            [userId, code]
-        );
+        const cleanCode = String(code).trim();
         
-        if (rows.length > 0) {
-            await db.execute('DELETE FROM otp_codes WHERE user_id = ?', [userId]);
+        const verifyUrl = new URL('https://skysms.skyio.site/api/v1/otp/verify');
+        // THE FIX: We renamed these to match exactly what the SkySMS server is asking for!
+        verifyUrl.searchParams.append('code', cleanCode);
+        verifyUrl.searchParams.append('phone_number', formattedPhone);
+
+        const response = await fetch(verifyUrl.toString(), {
+            method: 'GET',
+            headers: {
+                'X-API-Key': process.env.SKYSMS_API_KEY,
+                'Accept': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' 
+            }
+        });
+
+        const rawText = await response.text();
+        
+        let data;
+        try {
+            data = JSON.parse(rawText);
+        } catch (parseError) {
+            console.error(">>> SKY SMS RETURNED HTML: <<<", rawText);
+            return res.status(500).json({ error: "SMS Provider returned HTML." });
+        }
+
+        console.log(">>> SkySMS Verify Response:", data, "<<<");
+
+        // Check if there are ANY errors returned by their server
+        if (response.ok && !data.error && !data.errors && data.status !== 'error') {
             res.json({ success: true, message: "OTP Verified" });
         } else {
-            res.status(400).json({ error: "Invalid or expired OTP code." });
+            // Send the specific error message back to the frontend if the code is wrong
+            res.status(400).json({ error: data.message || "Invalid or expired OTP code." });
         }
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Database Error" });
+        console.error("API Connection Error:", err);
+        res.status(500).json({ error: "Server connection failed." });
     }
 });
 
 // --- NEW ROUTE: SAVE JOB TO DATABASE ---
-app.post('/api/jobs/create', async (req, res) => {
-    const { hrId, companyName, jobData } = req.body;
+// --- NEW ROUTE: SAVE JOB TO DATABASE (WITH IMAGE) ---
+app.post('/api/jobs/create', upload.single('jobImage'), async (req, res) => {
+    // Because we sent FormData, req.body variables might be strings.
+    const hrId = req.body.hrId;
+    const companyName = req.body.companyName;
+    const jobData = JSON.parse(req.body.jobData); // Parse the JSON string back into an object
+
+    // If an image was uploaded, create the URL. Otherwise, leave it null.
+    const imageUrl = req.file ? `http://localhost:5000/uploads/${req.file.filename}` : null;
 
     try {
         const query = `
             INSERT INTO jobs 
-            (hr_id, title, vacancies, location, employment_type, salary_min, salary_max, pay_period, education_level, required_skills, description, company_name, status) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+            (hr_id, title, image_url, vacancies, location, employment_type, salary_min, salary_max, pay_period, education_level, required_skills, description, company_name, status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
         `;
 
         const values = [
             hrId,
             jobData.title,
+            imageUrl, // <--- New Image URL
             jobData.vacancies,
             jobData.location,
             jobData.employmentType,
@@ -185,16 +259,16 @@ app.post('/api/jobs/create', async (req, res) => {
             jobData.salaryMax || 0,
             jobData.payPeriod,
             jobData.education,
-            JSON.stringify(jobData.requirements), // Saves the array as a string
+            JSON.stringify(jobData.requirements),
             jobData.description,
             companyName
         ];
 
         await db.execute(query, values);
-        
-        console.log(`>>> Success: Job "${jobData.title}" posted by ${companyName} <<<`);
+
+        console.log(`>>> Success: Job "${jobData.title}" posted with image! <<<`);
         res.json({ success: true, message: "Job published!" });
-        
+
     } catch (err) {
         console.error("Job Post Error:", err);
         res.status(500).json({ error: "Failed to save job to database." });
@@ -202,24 +276,28 @@ app.post('/api/jobs/create', async (req, res) => {
 });
 
 // --- NEW ROUTE: FETCH JOBS FOR SPECIFIC HR ---
-// --- 1. FETCH JOBS FOR HR ---
+// --- 1. FETCH JOBS FOR HR (UPDATED WITH APPLICANT COUNT) ---
 app.get('/api/hr/jobs/:hrId', async (req, res) => {
     const { hrId } = req.params;
     
-    // Safety check: ensure hrId is a number
     if (!hrId || isNaN(hrId)) {
         return res.status(400).json({ error: "Invalid HR ID" });
     }
 
     try {
-        // We use posted_at because that is what is in your database screenshot
-        const [rows] = await db.execute(
-            'SELECT * FROM jobs WHERE hr_id = ? ORDER BY posted_at DESC', 
-            [hrId]
-        );
+        // This query counts applications for each job automatically
+        const query = `
+            SELECT 
+                j.*, 
+                (SELECT COUNT(*) FROM applications a WHERE a.job_id = j.job_id) as applicant_count
+            FROM jobs j 
+            WHERE j.hr_id = ? 
+            ORDER BY j.posted_at DESC
+        `;
+        const [rows] = await db.execute(query, [hrId]);
         res.json(rows);
     } catch (err) {
-        console.error("CRITICAL DATABASE ERROR:", err.message);
+        console.error("DATABASE ERROR:", err.message);
         res.status(500).json({ error: "Database query failed", details: err.message });
     }
 });
@@ -248,12 +326,38 @@ app.put('/api/jobs/update/:jobId', async (req, res) => {
 // --- 3. DELETE JOB ---
 app.delete('/api/jobs/delete/:jobId', async (req, res) => {
     const { jobId } = req.params;
+    
+    // We use a database connection to perform a "Transaction"
+    // This ensures that if one step fails, it cancels everything safely.
+    const connection = await db.getConnection();
+    
     try {
-        await db.execute('DELETE FROM jobs WHERE job_id = ?', [jobId]);
-        res.json({ success: true });
+        await connection.beginTransaction();
+        
+        // 1. Delete all "Saved Jobs" references first
+        await connection.execute('DELETE FROM saved_jobs WHERE job_id = ?', [jobId]);
+        
+        // 2. Delete any "Interviews" linked to applications for this job
+        await connection.execute(
+            'DELETE FROM interviews WHERE app_id IN (SELECT app_id FROM applications WHERE job_id = ?)', 
+            [jobId]
+        );
+        
+        // 3. Delete the actual applications attached to this job
+        await connection.execute('DELETE FROM applications WHERE job_id = ?', [jobId]);
+        
+        // 4. Finally, it is now safe to delete the job posting itself!
+        await connection.execute('DELETE FROM jobs WHERE job_id = ?', [jobId]);
+        
+        await connection.commit();
+        res.json({ success: true, message: "Job and all related data deleted successfully." });
+        
     } catch (err) {
+        await connection.rollback(); // Undo everything if there is an error
         console.error("Delete Job Error:", err.message);
         res.status(500).json({ error: err.message });
+    } finally {
+        connection.release();
     }
 });
 
@@ -406,31 +510,43 @@ app.get('/api/hr/profile/:hrId', async (req, res) => {
     }
 });
 
-app.put('/api/hr/profile/update/:hrId', async (req, res) => {
+// ==========================================
+// HR COMPANY PROFILE UPDATE (WITH LOGO)
+// ==========================================
+app.put('/api/hr/profile/update/:hrId', upload.single('logo'), async (req, res) => {
     const { hrId } = req.params;
-    const { company_name, location, description, phone } = req.body;
+    
+    // Because we added upload.single('logo') above, req.body will now work perfectly!
+    const { company_name, location, description, phone, industry, company_size, website } = req.body;
+    
+    // Check if a new file was uploaded via multer
+    const newLogoUrl = req.file ? `http://localhost:5000/uploads/${req.file.filename}` : null;
 
     try {
-        // We use user_id because that is the Primary Key in your profiles table
-        const [result] = await db.execute(
-            `UPDATE profiles SET 
-            company_name = ?, 
-            location = ?, 
-            description = ?, 
-            phone = ? 
-            WHERE user_id = ?`,
-            [company_name, location, description, phone, hrId]
-        );
-
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ error: "Profile not found to update" });
+        if (newLogoUrl) {
+            // Update everything INCLUDING the new logo
+            await db.execute(
+                `UPDATE profiles SET 
+                company_name = ?, location = ?, description = ?, phone = ?, 
+                industry = ?, company_size = ?, website = ?, logo_url = ? 
+                WHERE user_id = ?`,
+                [company_name, location, description, phone, industry, company_size, website, newLogoUrl, hrId]
+            );
+            res.json({ success: true, message: "Profile & Logo updated", logo_url: newLogoUrl });
+        } else {
+            // Update text fields only, keep existing logo safe
+            await db.execute(
+                `UPDATE profiles SET 
+                company_name = ?, location = ?, description = ?, phone = ?, 
+                industry = ?, company_size = ?, website = ? 
+                WHERE user_id = ?`,
+                [company_name, location, description, phone, industry, company_size, website, hrId]
+            );
+            res.json({ success: true, message: "Profile text updated" });
         }
-
-        res.json({ success: true, message: "Profile updated!" });
     } catch (err) {
-        // Check your Node.js terminal for this specific message
-        console.error("UPDATE PROFILE ERROR:", err.message);
-        res.status(500).json({ error: err.message });
+        console.error("Profile Update Error:", err);
+        res.status(500).json({ error: "Database error during update." });
     }
 });
 
@@ -612,39 +728,70 @@ app.delete('/api/saved-jobs/:userId/:jobId', async (req, res) => {
     }
 });
 
-app.get('/api/jobseeker/dashboard/:userId', async (req, res) => {
+// --- NEW: JOB SEEKER PROFILE PICTURE UPLOAD ---
+app.post('/api/jobseeker/upload-photo/:userId', upload.single('photo'), async (req, res) => {
     const { userId } = req.params;
+    
+    // Create the URL for the uploaded file
+    const newPhotoUrl = req.file ? `http://localhost:5000/uploads/${req.file.filename}` : null;
+
+    if (!newPhotoUrl) return res.status(400).json({ error: "No image provided" });
+
     try {
-        // 1. Get Stats (Applications, Saved, Unread)
-        const [appCount] = await db.execute('SELECT COUNT(*) as c FROM applications WHERE user_id = ?', [userId]);
-        const [savedCount] = await db.execute('SELECT COUNT(*) as c FROM saved_jobs WHERE user_id = ?', [userId]);
-        const [unreadMsg] = await db.execute('SELECT COUNT(*) as c FROM messages WHERE receiver_id = ? AND is_read = 0', [userId]);
-        const [intvCount] = await db.execute('SELECT COUNT(*) as c FROM applications WHERE user_id = ? AND status = "Interview Scheduled"', [userId]);
+        // Save it to 'processed_image' so the HR CandidateReview.jsx can see it!
+        await db.execute(
+            'UPDATE profiles SET processed_image = ? WHERE user_id = ?',
+            [newPhotoUrl, userId]
+        );
+        res.json({ success: true, imageUrl: newPhotoUrl });
+    } catch (err) {
+        console.error("Upload Photo Error:", err);
+        res.status(500).json({ error: "Database error" });
+    }
+});
 
-        // 2. Recent Applications
+// ==========================================
+// JOB SEEKER DASHBOARD DATA
+// ==========================================
+app.get('/api/jobseeker/dashboard/:userId', async (req, res) => {
+    try {
+        const userId = req.params.userId;
+
+        // 1. Get Top Stats
+        const [[{ activeCount }]] = await db.execute("SELECT COUNT(*) as activeCount FROM applications WHERE user_id = ?", [userId]);
+        const [[{ interviewCount }]] = await db.execute("SELECT COUNT(*) as interviewCount FROM applications WHERE user_id = ? AND status LIKE '%Interview%'", [userId]);
+        const [[{ savedCount }]] = await db.execute("SELECT COUNT(*) as savedCount FROM saved_jobs WHERE user_id = ?", [userId]);
+        
+        let unreadMessages = 0;
+        try {
+            const [[unread]] = await db.execute("SELECT COUNT(*) as count FROM messages WHERE receiver_id = ? AND is_read = 0", [userId]);
+            unreadMessages = unread.count;
+        } catch (e) { /* Ignore if message table structure varies */ }
+
+        // 2. Get Recent Applications
         const [recentApps] = await db.execute(`
-            SELECT a.app_id as id, a.status, a.applied_at, j.title as jobTitle, p.company_name as company
-            FROM applications a JOIN jobs j ON a.job_id = j.job_id JOIN profiles p ON j.hr_id = p.user_id
-            WHERE a.user_id = ? ORDER BY a.applied_at DESC LIMIT 3`, [userId]);
+            SELECT a.app_id as id, j.title as jobTitle, j.company_name as company, a.status, a.applied_at 
+            FROM applications a 
+            JOIN jobs j ON a.job_id = j.job_id 
+            WHERE a.user_id = ? 
+            ORDER BY a.applied_at DESC LIMIT 5
+        `, [userId]);
 
-        // 3. Recent Messages
-        const [recentMessages] = await db.execute(`
-            SELECT m.*, p.company_name as company
-            FROM messages m JOIN profiles p ON m.sender_id = p.user_id
-            WHERE m.receiver_id = ? ORDER BY m.created_at DESC LIMIT 3`, [userId]);
+        // 3. Get Recommended Jobs
+        const [recommendedJobs] = await db.execute("SELECT * FROM jobs WHERE status = 'active' ORDER BY posted_at DESC LIMIT 4");
 
-        // 4. Matches (Recommended Jobs)
-        const [recommended] = await db.execute(`
-            SELECT j.*, p.company_name FROM jobs j JOIN profiles p ON j.hr_id = p.user_id
-            WHERE j.status = 'active' ORDER BY j.posted_at DESC LIMIT 3`);
-
+        // 4. Send all data back to the frontend
         res.json({
-            stats: { activeCount: appCount[0].c, savedCount: savedCount[0].c, unreadMessages: unreadMsg[0].c, interviewCount: intvCount[0].c },
+            stats: { activeCount, interviewCount, unreadMessages, savedCount },
             recentApps,
-            recentMessages,
-            recommendedJobs: recommended
+            recentMessages: [], // Send empty array to prevent frontend map errors
+            recommendedJobs
         });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+
+    } catch (err) {
+        console.error("Dashboard Route Error:", err);
+        res.status(500).json({ error: "Failed to load dashboard data." });
+    }
 });
 
 app.post('/api/jobseeker/profile/save', async (req, res) => {
@@ -1040,6 +1187,53 @@ app.get('/api/messages/history/:userId/:otherId', (req, res) => {
     });
 });
 
+//--- face recognition route ---
+app.post('/api/process-face', async (req, res) => {
+    const { image, userId } = req.body;
+
+    if (!image || !userId) {
+        return res.status(400).json({ error: "Missing image or user ID" });
+    }
+
+    // Spawn the Python process
+    const pythonProcess = spawn('python', ['remove_bg.py', userId]);
+    let imageUrl = '';
+
+    // Send the base64 image data to the python script
+    pythonProcess.stdin.write(image);
+    pythonProcess.stdin.end();
+
+    // Read the output (the URL) from Python
+    pythonProcess.stdout.on('data', (data) => {
+        imageUrl += data.toString().trim();
+    });
+
+    // When the Python script finishes creating the white background image...
+    pythonProcess.on('close', async (code) => {
+        if (code !== 0) {
+            return res.status(500).json({ error: "Failed to process image" });
+        }
+        
+        try {
+            // Clean up the URL just in case there are hidden spaces
+            const cleanUrl = imageUrl.split('\n')[0].trim();
+            
+            // SAVE THE NEW 2x2 PICTURE URL TO THE DATABASE!
+            await db.execute(
+                'UPDATE profiles SET processed_image = ? WHERE user_id = ?',
+                [cleanUrl, userId]
+            );
+            
+            console.log(`>>> Success: 2x2 Picture saved for User ${userId} <<<`);
+            res.json({ success: true, imageUrl: cleanUrl });
+            
+        } catch (dbErr) {
+            console.error("Database Error:", dbErr);
+            res.status(500).json({ error: "Image processed, but failed to save to database." });
+        }
+    });
+});
+
 // --- 3. SEND MESSAGE ---
 app.post('/api/messages/send', (req, res) => {
     const { sender_id, receiver_id, message_text } = req.body;
@@ -1059,4 +1253,210 @@ app.post('/api/messages/send', (req, res) => {
     });
 });
 // Important: Export the app so index.js can see it
+// ==========================================
+// 7. SUPER ADMIN ROUTES
+// ==========================================
+
+// --- GET ALL USERS ---
+app.get('/api/admin/users', async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                u.user_id as id, 
+                u.username as name, 
+                u.email, 
+                u.role, 
+                u.status,
+                p.company_name as company
+            FROM users u
+            LEFT JOIN profiles p ON u.user_id = p.user_id
+            ORDER BY u.user_id DESC
+        `;
+        const [rows] = await db.execute(query);
+        res.json(rows);
+    } catch (err) {
+        console.error("Admin Fetch Users Error:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- UPDATE USER DETAILS ---
+app.put('/api/admin/users/:id', async (req, res) => {
+    const { id } = req.params;
+    const { name, email, role, status } = req.body;
+    try {
+        await db.execute(
+            'UPDATE users SET username = ?, email = ?, role = ?, status = ? WHERE user_id = ?',
+            [name, email, role, status, id]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- FORCE DELETE USER & ALL THEIR DATA ---
+app.delete('/api/admin/users/:id', async (req, res) => {
+    const { id } = req.params;
+    const connection = await db.getConnection();
+    
+    try {
+        await connection.beginTransaction();
+        
+        // Erase their entire digital footprint from the platform
+        await connection.execute('DELETE FROM profiles WHERE user_id = ?', [id]);
+        await connection.execute('DELETE FROM applications WHERE user_id = ?', [id]);
+        await connection.execute('DELETE FROM saved_jobs WHERE user_id = ?', [id]);
+        await connection.execute('DELETE FROM messages WHERE sender_id = ? OR receiver_id = ?', [id, id]);
+        await connection.execute('DELETE FROM jobs WHERE hr_id = ?', [id]); // Deletes jobs if they were an HR
+        await connection.execute('DELETE FROM users WHERE user_id = ?', [id]); // Finally, delete the user
+        
+        await connection.commit();
+        res.json({ success: true, message: "User permanently erased." });
+    } catch (err) {
+        await connection.rollback();
+        res.status(500).json({ error: err.message });
+    } finally {
+        connection.release();
+    }
+});
+
+// --- GET ADMIN DASHBOARD STATS ---
+app.get('/api/admin/dashboard-stats', async (req, res) => {
+    try {
+        // 1. Count Job Seekers
+        const [seekers] = await db.execute("SELECT COUNT(*) as count FROM users WHERE role IN ('job_seeker', 'seeker')");
+        
+        // 2. Count Verified Employers
+        const [employers] = await db.execute("SELECT COUNT(*) as count FROM users WHERE role = 'hr' AND status = 'Active'");
+        
+        // 3. Count Pending HR Verifications
+        const [pending] = await db.execute("SELECT COUNT(*) as count FROM users WHERE role = 'hr' AND status = 'Pending'");
+        
+        // 4. Count Completed Voice Profiles
+        const [profiles] = await db.execute("SELECT COUNT(*) as count FROM profiles WHERE description IS NOT NULL AND description != ''");
+
+        // 5. Get the 4 most recent pending employer requests for the queue
+        const [queue] = await db.execute(`
+            SELECT u.user_id as id, p.company_name as company, 'Business Registration' as doc, u.status 
+            FROM users u 
+            JOIN profiles p ON u.user_id = p.user_id 
+            WHERE u.role = 'hr' AND u.status = 'Pending' 
+            ORDER BY u.user_id DESC LIMIT 4
+        `);
+
+        res.json({
+            stats: {
+                seekers: seekers[0].count,
+                employers: employers[0].count,
+                pending: pending[0].count,
+                voiceProfiles: profiles[0].count
+            },
+            verificationQueue: queue
+        });
+    } catch (err) {
+        console.error("Admin Dashboard Error:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- GET ALL HR VERIFICATIONS ---
+app.get('/api/admin/verifications', async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                u.user_id as id, 
+                u.status,
+                p.company_name as company,
+                p.location as address,
+                p.first_name,
+                p.last_name
+            FROM users u
+            JOIN profiles p ON u.user_id = p.user_id
+            WHERE u.role = 'hr'
+            ORDER BY u.user_id DESC
+        `;
+        const [rows] = await db.execute(query);
+        res.json(rows);
+    } catch (err) {
+        console.error("Verification Fetch Error:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- UPDATE USER STATUS ONLY (Quick Approve/Reject) ---
+app.put('/api/admin/users/:id/status', async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    try {
+        await db.execute('UPDATE users SET status = ? WHERE user_id = ?', [status, id]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- GET ALL JOBS FOR MODERATION ---
+app.get('/api/admin/jobs', async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                j.*, 
+                p.company_name as profile_company 
+            FROM jobs j 
+            LEFT JOIN profiles p ON j.hr_id = p.user_id 
+            ORDER BY j.posted_at DESC
+        `;
+        const [rows] = await db.execute(query);
+        res.json(rows);
+    } catch (err) {
+        console.error("Admin Fetch Jobs Error:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- UPDATE JOB STATUS (MODERATION) ---
+app.put('/api/admin/jobs/:id/status', async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    try {
+        await db.execute('UPDATE jobs SET status = ? WHERE job_id = ?', [status, id]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- UPDATE HR PERSONAL SETTINGS ---
+app.put('/api/hr/profile/personal/:hrId', async (req, res) => {
+    const { hrId } = req.params;
+    const { first_name, last_name, email, phone, job_title } = req.body;
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+        
+        // 1. Update the users table (for email)
+        await connection.execute(
+            'UPDATE users SET email = ? WHERE user_id = ?', 
+            [email, hrId]
+        );
+        
+        // 2. Update the profiles table (for personal details)
+        await connection.execute(
+            'UPDATE profiles SET first_name = ?, last_name = ?, phone = ?, job_title = ? WHERE user_id = ?', 
+            [first_name, last_name, phone, job_title, hrId]
+        );
+
+        await connection.commit();
+        res.json({ success: true, message: "Personal settings updated" });
+    } catch (err) {
+        await connection.rollback();
+        console.error("Settings Update Error:", err);
+        res.status(500).json({ error: "Failed to update settings" });
+    } finally {
+        connection.release();
+    }
+});
+
 module.exports = app;

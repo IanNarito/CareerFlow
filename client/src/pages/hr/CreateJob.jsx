@@ -1,17 +1,22 @@
-import React, { useState, useEffect } from 'react'; // Added useEffect
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Briefcase, MapPin, DollarSign, 
   GraduationCap, CheckCircle2, Building2, Users, 
-  FileText, AlertCircle, Eye, ShieldCheck, Wrench, Truck
+  FileText, AlertCircle, Eye, ShieldCheck, ImagePlus, X
 } from 'lucide-react';
 
 const CreateJob = () => {
   const navigate = useNavigate();
+  const fileInputRef = useRef(null);
   
-  // --- ADDED: DATABASE STATES ---
+  // --- DATABASE STATES ---
   const [companyName, setCompanyName] = useState(""); 
   const [hrId, setHrId] = useState(null);
+
+  // --- IMAGE UPLOAD STATES ---
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
 
   // HR Form State
   const [jobData, setJobData] = useState({
@@ -27,30 +32,21 @@ const CreateJob = () => {
     requirements: []
   });
 
-  // --- ADDED: FETCH PROFILE DATA ON LOAD ---
   useEffect(() => {
     const savedUser = JSON.parse(localStorage.getItem('user'));
-    
-    if (!savedUser) {
-      navigate('/login');
-      return;
-    }
+    if (!savedUser) { navigate('/login'); return; }
     
     const id = savedUser.id || savedUser.user_id;
     setHrId(id);
 
-    // Get the company name from your backend so handlePublish can use it
     fetch(`http://localhost:5000/api/hr/profile/${id}`)
       .then(res => res.json())
       .then(data => {
-        if (data.company_name) {
-          setCompanyName(data.company_name);
-        }
+        if (data.company_name) setCompanyName(data.company_name);
       })
       .catch(err => console.error("Error fetching HR info:", err));
   }, [navigate]);
 
-  // Blue-collar specific certifications
   const availableCerts = [
     'TESDA NC II', 'TESDA NC III', "Pro Driver's License", 
     "Non-Pro Driver's License", 'Safety Officer (BOSH)', 
@@ -66,18 +62,39 @@ const CreateJob = () => {
     }));
   };
 
+  // --- IMAGE HANDLING ---
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const removeImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const handlePublish = async (e) => {
     e.preventDefault();
+
+    // IMPORTANT: When sending files, we MUST use FormData instead of JSON!
+    const formData = new FormData();
+    formData.append('hrId', hrId);
+    formData.append('companyName', companyName);
+    formData.append('jobData', JSON.stringify(jobData));
+    
+    if (imageFile) {
+        formData.append('jobImage', imageFile); // Attach the actual file!
+    }
 
     try {
       const response = await fetch('http://localhost:5000/api/jobs/create', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          hrId: hrId,
-          companyName: companyName, // Now defined via state!
-          jobData: jobData
-        })
+        // Note: Do NOT set 'Content-Type' headers when using FormData. The browser handles the boundaries automatically.
+        body: formData
       });
 
       if (response.ok) {
@@ -95,49 +112,32 @@ const CreateJob = () => {
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-20">
       
-      {/* --- ENTERPRISE HEADER --- */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-[1400px] mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button 
-              onClick={() => navigate('/hr-dashboard')}
-              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500 hover:text-slate-900"
-            >
+            <button onClick={() => navigate(-1)} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-500 hover:text-slate-900">
               <ArrowLeft size={20} />
             </button>
             <div className="h-6 w-px bg-slate-300"></div>
             <div>
-              <h1 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-                Create Job Posting
-              </h1>
-              {/* UPDATED: DYNAMIC COMPANY NAME */}
-              <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider">
-                {companyName || "Loading Company..."}
-              </p>
+              <h1 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">Create Job Posting</h1>
+              <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider">{companyName || "Loading Company..."}</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button className="text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors hidden sm:block">
-              Save as Draft
-            </button>
-            <button 
-              onClick={handlePublish}
-              className="px-6 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-600/20"
-            >
-              Publish Job
-            </button>
+            <button className="text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors hidden sm:block">Save as Draft</button>
+            <button onClick={handlePublish} className="px-6 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-600/20">Publish Job</button>
           </div>
         </div>
       </header>
 
-      {/* --- MAIN WORKSPACE --- */}
       <main className="max-w-[1400px] mx-auto px-6 pt-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           
           {/* LEFT COLUMN: The Form (8 cols) */}
           <div className="lg:col-span-8 space-y-8">
             
-            {/* Form Section 1: Basic Details */}
+            {/* Form Section 1: Basic Details & Image */}
             <section className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm">
               <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
                 <Briefcase size={24} className="text-indigo-600" />
@@ -145,6 +145,42 @@ const CreateJob = () => {
               </div>
               
               <div className="space-y-6">
+                
+                {/* --- NEW IMAGE UPLOAD ZONE --- */}
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Cover Image / Job Banner (Optional)</label>
+                  <div className="w-full relative">
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      ref={fileInputRef} 
+                      onChange={handleImageSelect} 
+                    />
+                    
+                    {!imagePreview ? (
+                      <button 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full h-32 sm:h-40 border-2 border-dashed border-slate-300 rounded-2xl bg-slate-50 hover:bg-indigo-50 hover:border-indigo-300 transition-colors flex flex-col items-center justify-center gap-2 text-slate-500 group"
+                      >
+                        <ImagePlus size={32} className="text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                        <span className="text-sm font-bold group-hover:text-indigo-600">Click to upload an image</span>
+                        <span className="text-xs font-medium opacity-70">JPG, PNG up to 5MB</span>
+                      </button>
+                    ) : (
+                      <div className="relative w-full h-48 sm:h-64 rounded-2xl overflow-hidden border border-slate-200 shadow-inner bg-black">
+                        <img src={imagePreview} alt="Job Banner" className="w-full h-full object-cover opacity-90" />
+                        <button 
+                          onClick={removeImage}
+                          className="absolute top-4 right-4 p-2 bg-white/20 backdrop-blur-md hover:bg-red-500 text-white rounded-full transition-colors shadow-md"
+                        >
+                          <X size={20} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-2">Job Title</label>
                   <input 
@@ -344,33 +380,42 @@ const CreateJob = () => {
                   <h3 className="font-bold text-sm text-slate-400 uppercase tracking-wider">Live Preview</h3>
                 </div>
                 
-                <div className="border border-slate-100 rounded-2xl p-5 shadow-sm bg-slate-50">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 bg-indigo-100 text-indigo-700 rounded-lg flex items-center justify-center font-bold">
-                        {companyName ? companyName.charAt(0) : "B"}
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-slate-900 leading-tight truncate w-48">{jobData.title || "Job Title"}</h4>
-                      <p className="text-xs text-slate-500 font-medium">{companyName || "Your Company"}</p>
-                    </div>
+                <div className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-white pb-5">
+                  {/* PREVIEW IMAGE HEADER */}
+                  <div className="w-full h-32 bg-slate-200 relative">
+                    {imagePreview ? (
+                      <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
+                        <ImagePlus size={24} className="mb-1 opacity-50" />
+                        <span className="text-[10px] font-bold uppercase tracking-widest">No Banner</span>
+                      </div>
+                    )}
                   </div>
                   
-                  <div className="flex flex-col gap-2 mt-4 text-sm font-bold text-slate-600">
-                    <span className="flex items-center gap-2 bg-white px-2 py-1 rounded border border-slate-100"><MapPin size={14} className="text-slate-400"/> {jobData.location || "Location"}</span>
-                    <span className="flex items-center gap-2 bg-white px-2 py-1 rounded border border-slate-100 text-green-700"><DollarSign size={14} className="text-green-600"/> ₱{jobData.salaryMin || "0"} - ₱{jobData.salaryMax || "0"} / {jobData.payPeriod.split(' ')[1] || 'Day'}</span>
-                  </div>
+                  <div className="px-5 pt-4">
+                    <h4 className="font-bold text-slate-900 leading-tight truncate w-48 text-lg">{jobData.title || "Job Title"}</h4>
+                    <p className="text-xs text-slate-500 font-bold flex items-center gap-1 mt-1">
+                      <Building2 size={12}/> {companyName || "Your Company"}
+                    </p>
+                    
+                    <div className="flex flex-col gap-2 mt-4 text-sm font-bold text-slate-600">
+                      <span className="flex items-center gap-2 bg-slate-50 px-2.5 py-1.5 rounded border border-slate-100"><MapPin size={14} className="text-slate-400"/> {jobData.location || "Location"}</span>
+                      <span className="flex items-center gap-2 bg-green-50 px-2.5 py-1.5 rounded border border-green-100 text-green-700"><DollarSign size={14} className="text-green-600"/> ₱{jobData.salaryMin || "0"} - ₱{jobData.salaryMax || "0"} / {jobData.payPeriod.split(' ')[1] || 'Day'}</span>
+                    </div>
 
-                  {jobData.requirements.length > 0 && (
-                    <div className="mt-4 pt-3 border-t border-slate-200 flex flex-wrap gap-1.5">
-                      {jobData.requirements.slice(0, 2).map(req => (
-                        <span key={req} className="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-100">{req}</span>
-                      ))}
-                      {jobData.requirements.length > 2 && <span className="text-[10px] font-bold bg-slate-200 text-slate-600 px-2 py-0.5 rounded">+{jobData.requirements.length - 2}</span>}
+                    {jobData.requirements.length > 0 && (
+                      <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap gap-1.5">
+                        {jobData.requirements.slice(0, 2).map(req => (
+                          <span key={req} className="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-100">{req}</span>
+                        ))}
+                        {jobData.requirements.length > 2 && <span className="text-[10px] font-bold bg-slate-200 text-slate-600 px-2 py-0.5 rounded">+{jobData.requirements.length - 2}</span>}
+                      </div>
+                    )}
+                    
+                    <div className="mt-4 w-full py-2 bg-slate-900 text-white text-xs font-bold rounded-lg text-center opacity-50 cursor-not-allowed">
+                      Voice Apply (Disabled)
                     </div>
-                  )}
-                  
-                  <div className="mt-4 w-full py-2 bg-slate-900 text-white text-xs font-bold rounded-lg text-center opacity-50 cursor-not-allowed">
-                    Voice Apply (Disabled in Preview)
                   </div>
                 </div>
               </div>

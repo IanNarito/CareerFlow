@@ -5,7 +5,6 @@ import {
   Briefcase, Wrench, Sparkles, Loader2, User as UserIcon, Mail, Phone, Award, ShieldCheck
 } from 'lucide-react';
 
-// --- NEW: 5-STEP BROAD INTERVIEW ---
 const INTERVIEW_STEPS = [
   { id: 0, en: "Tell me about your most recent job role and the company you worked for.", tl: "Ikwento mo ang huling trabaho mo at ang kumpanyang pinasukan mo." },
   { id: 1, en: "Describe your main daily tasks and your biggest responsibilities.", tl: "Ano ang mga pangunahing ginagawa at responsibilidad mo araw-araw?" },
@@ -22,14 +21,20 @@ const VoiceBuilder = () => {
   const [manualMode, setManualMode] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // NEW: State to hide the picture box if the image doesn't exist yet
+  const [imgError, setImgError] = useState(false);
 
   const savedUser = JSON.parse(localStorage.getItem('user'));
+  const userId = savedUser?.id || savedUser?.user_id;
   
   const [resumeData, setResumeData] = useState({
     name: savedUser?.username || "Applicant", 
     email: savedUser?.email || "email@example.com",
     phone: "Provided in Onboarding", 
     location: "Philippines",
+    // SMART FIX: Predict the exact URL the Python script generated!
+    profile_picture: userId ? `http://localhost:5000/uploads/profile_${userId}.jpg` : null, 
     role: "", 
     company: "", 
     duration: "Recent Experience", 
@@ -48,6 +53,24 @@ const VoiceBuilder = () => {
       return;
     }
 
+    const fetchProfileData = async () => {
+      try {
+        const res = await fetch(`http://localhost:5000/api/hr/profile/${userId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setResumeData(prev => ({
+            ...prev,
+            phone: data.phone || prev.phone,
+            location: data.location || prev.location
+          }));
+        }
+      } catch (err) {
+        console.error("Failed to load profile data:", err);
+      }
+    };
+    fetchProfileData();
+
+    // --- Speech Recognition Setup ---
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
       recognitionRef.current = new SpeechRecognition();
@@ -61,7 +84,7 @@ const VoiceBuilder = () => {
       };
       recognitionRef.current.onend = () => setIsListening(false);
     }
-  }, [navigate, savedUser]);
+  }, [navigate, userId]);
 
   const handleMicToggle = () => {
     if (isListening) recognitionRef.current.stop();
@@ -80,21 +103,34 @@ const VoiceBuilder = () => {
       });
       
       const aiData = await response.json();
+      console.log("AI Enhanced Data Received:", aiData);
+
+      // SMART FIX: A super-flexible parser that catches any weird JSON format the AI throws at it!
+      const safeArray = (...args) => {
+        let combined = [];
+        args.forEach(val => {
+          if (Array.isArray(val)) combined = [...combined, ...val];
+          else if (typeof val === 'string' && val.trim()) combined.push(val);
+        });
+        return combined.filter(Boolean); // Remove empties
+      };
 
       setResumeData(prev => ({
         ...prev,
-        role: aiData.role ? aiData.role : prev.role,
-        company: aiData.company ? aiData.company : prev.company,
-        responsibilities: aiData.responsibilities?.length > 0 ? [...prev.responsibilities, ...aiData.responsibilities] : prev.responsibilities,
-        skills: aiData.skills?.length > 0 ? [...new Set([...prev.skills, ...aiData.skills])] : prev.skills,
-        achievements: aiData.achievements?.length > 0 ? [...prev.achievements, ...aiData.achievements] : prev.achievements,
-        certifications: aiData.certifications?.length > 0 ? [...prev.certifications, ...aiData.certifications] : prev.certifications,
-        softSkills: aiData.softSkills?.length > 0 ? [...new Set([...prev.softSkills, ...aiData.softSkills])] : prev.softSkills,
+        // Catch multiple variations of Role and Company
+        role: aiData.role || aiData.job_title || aiData.title || prev.role,
+        company: aiData.company || aiData.company_name || aiData.employer || prev.company,
+        
+        // Use safeArray to catch plurals, singulars, and string formats
+        responsibilities: [...prev.responsibilities, ...safeArray(aiData.responsibilities, aiData.responsibility, aiData.tasks)],
+        skills: [...new Set([...prev.skills, ...safeArray(aiData.skills, aiData.skill, aiData.technical_skills)])],
+        achievements: [...prev.achievements, ...safeArray(aiData.achievements, aiData.achievement)],
+        certifications: [...prev.certifications, ...safeArray(aiData.certifications, aiData.certification, aiData.licenses, aiData.license)],
+        softSkills: [...new Set([...prev.softSkills, ...safeArray(aiData.softSkills, aiData.soft_skills, aiData.soft_skill)])]
       }));
 
       setTranscript("");
       
-      // Advance to next step or finish
       if (step < INTERVIEW_STEPS.length - 1) {
         setStep(prev => prev + 1);
       } else {
@@ -111,10 +147,8 @@ const VoiceBuilder = () => {
 
   const handleFinalSave = async () => {
     setIsSaving(true);
-    const userId = savedUser?.id || savedUser?.user_id;
+    const id = savedUser?.id || savedUser?.user_id;
 
-    // --- FIXED: FORMATTING WITHOUT MARKDOWN ASTERISKS ---
-    // Uses clean uppercase headers so the Resume.jsx page prints perfectly.
     let compiledDescription = `Highly capable ${resumeData.role || 'Professional'} with hands-on experience at ${resumeData.company || 'various companies'}. Proven ability to maintain safety standards and deliver quality results.\n\n`;
     
     if (resumeData.responsibilities.length > 0) {
@@ -134,7 +168,7 @@ const VoiceBuilder = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_id: userId,
+          user_id: id,
           skills: allSkills,
           description: compiledDescription.trim()
         })
@@ -240,12 +274,28 @@ const VoiceBuilder = () => {
           </div>
           
           <div className="bg-white shadow-2xl w-full max-w-2xl mx-auto min-h-[800px] border border-slate-200 mb-10">
-            <div className="border-b-[6px] border-slate-900 p-8 sm:p-10">
-              <h1 className="text-3xl sm:text-4xl font-black text-slate-900 mb-4 uppercase tracking-tight">{resumeData.name}</h1>
-              <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm font-semibold text-slate-600">
-                <span className="flex items-center gap-1.5"><Mail size={16}/> {resumeData.email}</span>
-                <span className="flex items-center gap-1.5"><Phone size={16}/> {resumeData.phone}</span>
+            
+            {/* UPDATED HEADER: Includes the 2x2 Picture logic */}
+            <div className="border-b-[6px] border-slate-900 p-8 sm:p-10 flex flex-col-reverse sm:flex-row justify-between items-start sm:items-center gap-6">
+              <div>
+                <h1 className="text-3xl sm:text-4xl font-black text-slate-900 mb-4 uppercase tracking-tight">{resumeData.name}</h1>
+                <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm font-semibold text-slate-600">
+                  <span className="flex items-center gap-1.5"><Mail size={16}/> {resumeData.email}</span>
+                  <span className="flex items-center gap-1.5"><Phone size={16}/> {resumeData.phone}</span>
+                </div>
               </div>
+              
+              {/* LIVE PROFILE PICTURE - Only shows if the image exists and loads successfully */}
+              {!imgError && resumeData.profile_picture && (
+                <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 rounded-2xl overflow-hidden border-4 border-slate-200 shadow-md bg-slate-100">
+                  <img 
+                    src={resumeData.profile_picture} 
+                    alt="Profile" 
+                    className="w-full h-full object-cover"
+                    onError={() => setImgError(true)} // SMART FIX: Hides the box entirely if no photo was taken
+                  />
+                </div>
+              )}
             </div>
             
             <div className="p-8 sm:p-10 space-y-8 text-slate-900">

@@ -1,34 +1,38 @@
-import React, { useState, useEffect } from 'react'; // Added useEffect
+import React, { useState, useEffect } from 'react'; 
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, Briefcase, Calendar as CalendarIcon, 
   Settings, Bell, Search, Plus, Building2, Filter, 
-  ChevronDown, Edit3, MoreVertical, Eye, MapPin, DollarSign,
-  X, CheckCircle2, PauseCircle, Trash2
+  Edit3, MoreVertical, Eye, MapPin, DollarSign,
+  X, CheckCircle2, PauseCircle, Trash2, MessageSquare, LogOut
 } from 'lucide-react';
 
 const JobPostings = () => {
   const navigate = useNavigate();
   
   // --- REAL DATABASE LOGIC ---
-  const [jobs, setJobs] = useState([]); // Default to empty array
+  const [jobs, setJobs] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [companyName, setCompanyName] = useState("");
+  
+  const [conversations, setConversations] = useState([]); 
 
   // Slide-over Edit State
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingJob, setEditingJob] = useState(null);
 
-  const fetchJobs = async () => {
-    const savedUser = JSON.parse(localStorage.getItem('user'));
-    const hrId = savedUser?.id || savedUser?.user_id;
-    if (!hrId) return navigate('/login');
+  // --- LOGOUT HANDLER ---
+  const handleLogout = () => {
+    if(window.confirm("Are you sure you want to log out?")) {
+      localStorage.removeItem('user');
+      navigate('/login');
+    }
+  };
 
+  const fetchJobs = async (hrId) => {
     try {
       const response = await fetch(`http://localhost:5000/api/hr/jobs/${hrId}`);
       const data = await response.json();
-      
-      // Ensure data is an array before setting state
       setJobs(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error loading jobs:", error);
@@ -39,14 +43,28 @@ const JobPostings = () => {
   };
 
   useEffect(() => {
-    fetchJobs();
+    // --- 1. STRICT HR SECURITY BOUNCER ---
+    const savedUser = localStorage.getItem('user');
+    if (!savedUser) {
+      navigate('/login');
+      return;
+    }
+    
+    const parsedUser = JSON.parse(savedUser);
+    if (parsedUser.role !== 'hr') {
+      navigate('/dashboard'); 
+      return;
+    }
+
+    // --- 2. FETCH DATA ---
+    const hrId = parsedUser.id || parsedUser.user_id;
+    fetchJobs(hrId);
     
     // Get Company Profile for Header
-    const savedUser = JSON.parse(localStorage.getItem('user'));
-    fetch(`http://localhost:5000/api/hr/profile/${savedUser.id || savedUser.user_id}`)
+    fetch(`http://localhost:5000/api/hr/profile/${hrId}`)
       .then(res => res.json())
-      .then(data => setCompanyName(data.company_name || "BuildRight Corp"))
-      .catch(() => setCompanyName("BuildRight Corp"));
+      .then(data => setCompanyName(data.company_name || "Company"))
+      .catch(() => setCompanyName("Company"));
   }, [navigate]);
 
   const openEditPanel = (job) => {
@@ -68,7 +86,8 @@ const JobPostings = () => {
         body: JSON.stringify(editingJob)
       });
       if (response.ok) {
-        fetchJobs();
+        const savedUser = JSON.parse(localStorage.getItem('user'));
+        fetchJobs(savedUser.id || savedUser.user_id);
         closeEditPanel();
       }
     } catch (error) {
@@ -77,11 +96,12 @@ const JobPostings = () => {
   };
 
   const handleDeleteJob = async (id) => {
-    if(!window.confirm("Delete this posting?")) return;
+    if(!window.confirm("Delete this posting? This will remove it from the public board forever.")) return;
     try {
       const response = await fetch(`http://localhost:5000/api/jobs/delete/${id}`, { method: 'DELETE' });
       if (response.ok) {
-        fetchJobs();
+        const savedUser = JSON.parse(localStorage.getItem('user'));
+        fetchJobs(savedUser.id || savedUser.user_id);
         closeEditPanel();
       }
     } catch (error) {
@@ -92,7 +112,6 @@ const JobPostings = () => {
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex overflow-hidden">
       
-      {/* --- LEFT SIDEBAR (No design changes) --- */}
       <aside className="hidden lg:flex w-64 flex-col bg-slate-900 text-slate-300 border-r border-slate-800 h-screen flex-shrink-0 z-20">
         <div className="p-6 flex items-center gap-3 border-b border-slate-800">
           <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-sm">
@@ -104,17 +123,24 @@ const JobPostings = () => {
         <nav className="flex-1 px-4 py-8 space-y-2">
           <SidebarLink icon={<LayoutDashboard size={20}/>} label="Dashboard" to="/hr-dashboard" />
           <SidebarLink icon={<Briefcase size={20}/>} label="Job Postings" active to="/hr/jobs" />
-          <SidebarLink icon={<Users size={20}/>} label="Candidates" badge={18} to="/hr/board" />
+          <SidebarLink icon={<Users size={20}/>} label="Candidates" to="/hr/board" />
+          <SidebarLink icon={<MessageSquare size={20}/>} label="Messages" to="/hr-messages" badge={conversations.length} />
           <SidebarLink icon={<CalendarIcon size={20}/>} label="Interviews" to="/hr/interviews"/>
           <SidebarLink icon={<Building2 size={20}/>} label="Company Profile" to="/hr/profile"/>
         </nav>
 
-        <div className="p-4 border-t border-slate-800">
+        <div className="p-4 border-t border-slate-800 space-y-2">
           <SidebarLink icon={<Settings size={20}/>} label="Settings" to="/hr/settings"/>
+          <button 
+            onClick={handleLogout} 
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-bold text-slate-400 hover:bg-red-950 hover:text-red-500"
+          >
+            <LogOut size={20} />
+            <span>Log Out</span>
+          </button>
         </div>
       </aside>
 
-      {/* --- MAIN CONTENT AREA --- */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
         
         <header className="h-20 bg-white border-b border-slate-200 px-8 flex items-center justify-between flex-shrink-0 z-10">
@@ -132,8 +158,8 @@ const JobPostings = () => {
                 <p className="text-sm font-bold text-slate-900 leading-none">{companyName}</p>
                 <p className="text-xs text-slate-500 mt-1">HR Admin</p>
               </div>
-              <div className="w-10 h-10 rounded-full bg-slate-200 border border-slate-300 flex items-center justify-center text-slate-600 font-bold">
-                {companyName.charAt(0)}
+              <div className="w-10 h-10 rounded-full bg-slate-200 border border-slate-300 flex items-center justify-center text-slate-600 font-bold uppercase">
+                {companyName.charAt(0) || "C"}
               </div>
             </div>
           </div>
@@ -191,14 +217,9 @@ const JobPostings = () => {
 
                       <td className="py-5 px-6">
                         <div className="flex gap-4">
-                          <div className="text-center">
-                            <p className="font-bold text-slate-900">0</p>
+                          <div className="text-center cursor-pointer hover:bg-slate-100 p-2 rounded-lg transition-colors" onClick={() => navigate('/hr/board')}>
+                            <p className="font-bold text-indigo-600 text-lg">{job.applicant_count || 0}</p>
                             <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Applicants</p>
-                          </div>
-                          <div className="w-px bg-slate-200"></div>
-                          <div className="text-center">
-                            <p className="font-bold text-slate-900">0</p>
-                            <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Views</p>
                           </div>
                         </div>
                       </td>
@@ -220,7 +241,7 @@ const JobPostings = () => {
                   ))}
                   {jobs.length === 0 && !loading && (
                     <tr>
-                       <td colSpan="5" className="py-20 text-center text-slate-400 font-bold">No job postings found.</td>
+                       <td colSpan="5" className="py-20 text-center text-slate-400 font-bold">No job postings found. Click "Post New Job" to start hiring!</td>
                     </tr>
                   )}
                 </tbody>
@@ -254,25 +275,36 @@ const JobPostings = () => {
                     onChange={(e) => setEditingJob({...editingJob, status: e.target.value})}
                     className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-600 font-bold text-slate-900"
                   >
-                    <option value="active">🟢 Active</option>
-                    <option value="paused">🟡 Paused</option>
-                    <option value="draft">⚪ Draft</option>
+                    <option value="active">🟢 Active (Visible)</option>
+                    <option value="paused">🟡 Paused (Hidden)</option>
+                    <option value="draft">⚪ Draft (Private)</option>
                   </select>
                 </div>
 
                 <div className="border-t border-slate-100 pt-6">
                   <label className="block text-sm font-bold text-slate-700 mb-2">Job Title</label>
-                  <input type="text" value={editingJob?.title} onChange={(e) => setEditingJob({...editingJob, title: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900" />
+                  <input type="text" required value={editingJob?.title} onChange={(e) => setEditingJob({...editingJob, title: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:ring-2 focus:ring-indigo-600 outline-none" />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">Location</label>
-                    <input type="text" value={editingJob?.location} onChange={(e) => setEditingJob({...editingJob, location: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
+                    <input type="text" required value={editingJob?.location} onChange={(e) => setEditingJob({...editingJob, location: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-600 outline-none" />
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">Vacancies</label>
-                    <input type="number" value={editingJob?.vacancies} onChange={(e) => setEditingJob({...editingJob, vacancies: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
+                    <input type="number" required min="1" value={editingJob?.vacancies} onChange={(e) => setEditingJob({...editingJob, vacancies: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-600 outline-none" />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 border-t border-slate-100 pt-6">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Min Salary (₱)</label>
+                    <input type="number" value={editingJob?.salary_min} onChange={(e) => setEditingJob({...editingJob, salary_min: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-600 outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Max Salary (₱)</label>
+                    <input type="number" value={editingJob?.salary_max} onChange={(e) => setEditingJob({...editingJob, salary_max: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-600 outline-none" />
                   </div>
                 </div>
               </form>
@@ -301,7 +333,7 @@ const SidebarLink = ({ icon, label, badge, active, to = "#" }) => (
       {icon}
       <span>{label}</span>
     </div>
-    {badge && <span className="bg-indigo-500 text-white text-xs px-2.5 py-0.5 rounded-full">{badge}</span>}
+    {badge !== undefined && badge > 0 && <span className="bg-indigo-500 text-white text-xs px-2.5 py-0.5 rounded-full">{badge}</span>}
   </Link>
 );
 
