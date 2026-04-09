@@ -32,7 +32,7 @@ import Features from './pages/Features';
 import Contact from './pages/Contact';
 import FAQ from './pages/FAQ';
 import Resume from './pages/seeker/Resume';
-import HRMessages from './pages/hr/HRmessages';
+import HRMessages from './pages/hr/HRMessages';
 
 function App() {
   return (
