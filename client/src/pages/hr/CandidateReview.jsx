@@ -70,9 +70,10 @@ const CandidateReview = () => {
 
   useEffect(() => {
     const fetchCandidateData = async () => {
+      const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
       if (!id) return;
       try {
-        const response = await fetch(`http://localhost:5000/api/hr/application-review/${id}`);
+        const response = await fetch(`${API_BASE_URL}/api/hr/application-review/${id}`);
         if (!response.ok) throw new Error("Not found");
         const data = await response.json();
         setCandidate(data);
@@ -86,10 +87,11 @@ const CandidateReview = () => {
   }, [id]);
 
   const handleReject = async () => {
+    const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
     if (!window.confirm("Are you sure you want to reject this candidate?")) return;
     setIsProcessing(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/applications/status/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/applications/status/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'rejected' }) 
@@ -107,10 +109,11 @@ const CandidateReview = () => {
   };
 
   const handleUndoReject = async () => {
+    const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
     if (!window.confirm("Restore this candidate to the active pipeline?")) return;
     setIsProcessing(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/applications/status/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/applications/status/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'pending' }) 
@@ -128,10 +131,11 @@ const CandidateReview = () => {
   };
 
   const handleHire = async () => {
+    const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
     if (!window.confirm("Officialize Hiring? This will move the candidate to the Hired column.")) return;
     setIsProcessing(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/applications/status/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/applications/status/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'hired' }) 
@@ -149,10 +153,11 @@ const CandidateReview = () => {
   };
 
   const handleUndoHire = async () => {
+    const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
     if (!window.confirm("Move this candidate back to the interviewing stage?")) return;
     setIsProcessing(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/applications/status/${id}`, {
+      const response = await fetch(`${API_BASE_URL}}/api/applications/status/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'interview scheduled' })
@@ -170,10 +175,11 @@ const CandidateReview = () => {
   };
 
   const handleScheduleSubmit = async (e) => {
+    const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
     e.preventDefault();
     setIsProcessing(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/interviews/schedule`, {
+      const response = await fetch(`${API_BASE_URL}/api/interviews/schedule`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

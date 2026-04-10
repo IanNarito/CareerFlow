@@ -22,6 +22,7 @@ const ApplicantBoard = () => {
   const fetchApplications = async () => {
     const savedUser = JSON.parse(localStorage.getItem('user'));
     const hrId = savedUser?.id || savedUser?.user_id;
+    const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
 
     if (!hrId) {
         navigate('/login');
@@ -29,7 +30,7 @@ const ApplicantBoard = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/hr/applications/${hrId}`);
+      const response = await fetch(`${API_BASE_URL}/api/hr/applications/${hrId}`);
       const data = await response.json();
       const activeCandidates = Array.isArray(data) 
         ? data.filter(c => c.status?.toLowerCase() !== 'rejected') 
@@ -67,10 +68,11 @@ const ApplicantBoard = () => {
   };
 
   const handleUndoHire = async (appId) => {
+    const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
     if (!window.confirm("Accidental hire? Move this candidate back to the Interviewing stage?")) return;
     
     try {
-      const response = await fetch(`http://localhost:5000/api/applications/status/${appId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/applications/status/${appId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'interview scheduled' })
@@ -99,6 +101,7 @@ const ApplicantBoard = () => {
     }
 
     const originalCandidates = [...candidates];
+    const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
     setCandidates(prev => 
       prev.map(cand => cand.app_id === draggedId ? { ...cand, status: targetStatus } : cand)
     );

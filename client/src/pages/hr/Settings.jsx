@@ -14,6 +14,7 @@ const Settings = () => {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [conversations, setConversations] = useState([]);
+  const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
   
   // --- REAL DATABASE STATE ---
   const [hrProfile, setHrProfile] = useState({
@@ -45,7 +46,7 @@ const Settings = () => {
     // 2. FETCH PERSONAL PROFILE DATA
     const fetchProfile = async () => {
       try {
-        const response = await fetch(`http://localhost:5000/api/hr/profile/${hrId}`);
+        const response = await fetch(`${API_BASE_URL}/api/hr/profile/${hrId}`);
         if (response.ok) {
           const data = await response.json();
           setHrProfile({
@@ -70,7 +71,7 @@ const Settings = () => {
     if (!hrId) return;
     const fetchInboxCount = async () => {
       try {
-        const res = await fetch(`http://localhost:5000/api/messages/inbox/${hrId}`);
+        const res = await fetch(`${API_BASE_URL}/api/messages/inbox/${hrId}`);
         if (res.ok) {
           const apiInbox = await res.json();
           const uniqueConversations = apiInbox.reduce((acc, current) => {
@@ -92,7 +93,7 @@ const Settings = () => {
     e.preventDefault();
     setIsSaving(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/hr/profile/personal/${hrId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/hr/profile/personal/${hrId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(hrProfile)

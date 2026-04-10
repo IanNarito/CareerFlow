@@ -14,17 +14,18 @@ const CompanyPublicPage = () => {
   const [company, setCompany] = useState(null);
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
 
   useEffect(() => {
     const fetchPublicData = async () => {
       try {
         // Fetch Company Bio
-        const compRes = await fetch(`http://localhost:5000/api/public/company/${hrId}`);
+        const compRes = await fetch(`${API_BASE_URL}/api/public/company/${hrId}`);
         const compData = await compRes.json();
         setCompany(compData);
 
         // Fetch Active Jobs
-        const jobsRes = await fetch(`http://localhost:5000/api/public/company/${hrId}/jobs`);
+        const jobsRes = await fetch(`${API_BASE_URL}/api/public/company/${hrId}/jobs`);
         const jobsData = await jobsRes.json();
         setJobs(jobsData);
       } catch (error) {

@@ -24,7 +24,7 @@ const VoiceBuilder = () => {
   
   // NEW: State to hide the picture box if the image doesn't exist yet
   const [imgError, setImgError] = useState(false);
-
+  const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
   const savedUser = JSON.parse(localStorage.getItem('user'));
   const userId = savedUser?.id || savedUser?.user_id;
   
@@ -34,7 +34,7 @@ const VoiceBuilder = () => {
     phone: "Provided in Onboarding", 
     location: "Philippines",
     // SMART FIX: Predict the exact URL the Python script generated!
-    profile_picture: userId ? `http://localhost:5000/uploads/profile_${userId}.jpg` : null, 
+    profile_picture: userId ? `${API_BASE_URL}}/uploads/profile_${userId}.jpg` : null, 
     role: "", 
     company: "", 
     duration: "Recent Experience", 
@@ -55,7 +55,7 @@ const VoiceBuilder = () => {
 
     const fetchProfileData = async () => {
       try {
-        const res = await fetch(`http://localhost:5000/api/hr/profile/${userId}`);
+        const res = await fetch(`${API_BASE_URL}/api/hr/profile/${userId}`);
         if (res.ok) {
           const data = await res.json();
           setResumeData(prev => ({
@@ -96,7 +96,7 @@ const VoiceBuilder = () => {
     setIsProcessing(true);
 
     try {
-      const response = await fetch('http://localhost:5000/api/ai/extract-resume', {
+      const response = await fetch(`${API_BASE_URL}/api/ai/extract-resume`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ transcript, step })
@@ -164,7 +164,7 @@ const VoiceBuilder = () => {
     const allSkills = [...resumeData.skills, ...resumeData.softSkills].join(', ');
 
     try {
-      const response = await fetch(`http://localhost:5000/api/jobseeker/profile/save`, {
+      const response = await fetch(`${API_BASE_URL}/api/jobseeker/profile/save`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

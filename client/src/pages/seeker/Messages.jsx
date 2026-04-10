@@ -31,11 +31,12 @@ const Messages = () => {
 
   const safeUserName = currentUser?.username || "Applicant";
   const userInitial = safeUserName.charAt(0).toUpperCase();
+  const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
 
   const fetchInbox = async () => {
     if (!userId) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/messages/inbox/${userId}`);
+      const res = await fetch(`${API_BASE_URL}/api/messages/inbox/${userId}`);
       if (!res.ok) return;
       const data = await res.json();
       
@@ -56,7 +57,7 @@ const Messages = () => {
   const fetchHistory = async () => {
     if (!userId || !activeChatId) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/messages/history/${userId}/${activeChatId}`);
+      const res = await fetch(`${API_BASE_URL}/api/messages/history/${userId}/${activeChatId}`);
       if (res.ok) {
         const data = await res.json();
         const formattedHistory = data.map(m => ({
@@ -122,7 +123,7 @@ const Messages = () => {
     }]);
 
     try {
-      await fetch('http://localhost:5000/api/messages/send', {
+      await fetch(`${API_BASE_URL}/api/messages/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

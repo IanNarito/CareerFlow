@@ -29,8 +29,10 @@ const Dashboard = () => {
 
     const fetchDashboardData = async () => {
       const userId = savedUser.id || savedUser.user_id;
+      const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
+
       try {
-        const response = await fetch(`http://localhost:5000/api/jobseeker/dashboard/${userId}`);
+        const response = await fetch(`${API_BASE_URL}/api/jobseeker/dashboard/${userId}`);
         const data = await response.json();
         
         setStats([

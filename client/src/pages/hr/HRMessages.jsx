@@ -19,6 +19,7 @@ const HRMessages = () => {
 
   const savedUser = JSON.parse(localStorage.getItem('user'));
   const hrId = savedUser?.id || savedUser?.user_id;
+  const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
 
   // --- LOGOUT HANDLER ---
   const handleLogout = () => {
@@ -38,7 +39,7 @@ const HRMessages = () => {
   const syncData = async () => {
     if (!hrId) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/messages/inbox/${hrId}`);
+      const res = await fetch(`${API_BASE_URL}/api/messages/inbox/${hrId}`);
       if (res.ok) {
         const apiInbox = await res.json();
         const grouped = {};
@@ -56,7 +57,7 @@ const HRMessages = () => {
       }
 
       if (activeChatId) {
-        const hRes = await fetch(`http://localhost:5000/api/messages/history/${hrId}/${activeChatId}`);
+        const hRes = await fetch(`${API_BASE_URL}/api/messages/history/${hrId}/${activeChatId}`);
         if (hRes.ok) {
           const apiHistory = await hRes.json();
           const formatted = apiHistory.map(m => ({
@@ -118,7 +119,7 @@ const HRMessages = () => {
     setAttachment(null); // Clear attachment
 
     try {
-      const res = await fetch('http://localhost:5000/api/messages/send', {
+      const res = await fetch(`${API_BASE_URL}/api/messages/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sender_id: hrId, receiver_id: activeChatId, message_text: currentText })

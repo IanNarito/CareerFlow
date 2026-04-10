@@ -30,8 +30,9 @@ const JobPostings = () => {
   };
 
   const fetchJobs = async (hrId) => {
+    const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
     try {
-      const response = await fetch(`http://localhost:5000/api/hr/jobs/${hrId}`);
+      const response = await fetch(`${API_BASE_URL}/api/hr/jobs/${hrId}`);
       const data = await response.json();
       setJobs(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -61,7 +62,7 @@ const JobPostings = () => {
     fetchJobs(hrId);
     
     // Get Company Profile for Header
-    fetch(`http://localhost:5000/api/hr/profile/${hrId}`)
+    fetch(`${API_BASE_URL}/api/hr/profile/${hrId}`)
       .then(res => res.json())
       .then(data => setCompanyName(data.company_name || "Company"))
       .catch(() => setCompanyName("Company"));
@@ -80,7 +81,7 @@ const JobPostings = () => {
   const handleSaveJob = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch(`http://localhost:5000/api/jobs/update/${editingJob.job_id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/jobs/update/${editingJob.job_id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editingJob)
@@ -98,7 +99,7 @@ const JobPostings = () => {
   const handleDeleteJob = async (id) => {
     if(!window.confirm("Delete this posting? This will remove it from the public board forever.")) return;
     try {
-      const response = await fetch(`http://localhost:5000/api/jobs/delete/${id}`, { method: 'DELETE' });
+      const response = await fetch(`${API_BASE_URL}/api/jobs/delete/${id}`, { method: 'DELETE' });
       if (response.ok) {
         const savedUser = JSON.parse(localStorage.getItem('user'));
         fetchJobs(savedUser.id || savedUser.user_id);

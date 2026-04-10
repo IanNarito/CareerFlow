@@ -33,13 +33,14 @@ const CreateJob = () => {
   });
 
   useEffect(() => {
+    const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
     const savedUser = JSON.parse(localStorage.getItem('user'));
     if (!savedUser) { navigate('/login'); return; }
     
     const id = savedUser.id || savedUser.user_id;
     setHrId(id);
 
-    fetch(`http://localhost:5000/api/hr/profile/${id}`)
+    fetch(`${API_BASE_URL}/api/hr/profile/${id}`)
       .then(res => res.json())
       .then(data => {
         if (data.company_name) setCompanyName(data.company_name);
@@ -91,7 +92,7 @@ const CreateJob = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/jobs/create', {
+      const response = await fetch(`${API_BASE_URL}/api/jobs/create`, {
         method: 'POST',
         // Note: Do NOT set 'Content-Type' headers when using FormData. The browser handles the boundaries automatically.
         body: formData

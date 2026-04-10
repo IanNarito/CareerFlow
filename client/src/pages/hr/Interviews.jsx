@@ -33,8 +33,9 @@ const Interviews = () => {
 
     // --- 2. FETCH INTERVIEWS ---
     const fetchInterviews = async () => {
+      const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
       try {
-        const response = await fetch(`http://localhost:5000/api/hr/interviews/${hrId}`);
+        const response = await fetch(`${API_BASE_URL}/api/hr/interviews/${hrId}`);
         const data = await response.json();
         setAllInterviews(Array.isArray(data) ? data : []);
       } catch (error) {
@@ -46,8 +47,9 @@ const Interviews = () => {
 
     // --- 3. FETCH MESSAGES BADGE ---
     const fetchInboxCount = async () => {
+      const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
       try {
-        const res = await fetch(`http://localhost:5000/api/messages/inbox/${hrId}`);
+        const res = await fetch(`${API_BASE_URL}/api/messages/inbox/${hrId}`);
         if (res.ok) {
           const apiInbox = await res.json();
           const uniqueConversations = apiInbox.reduce((acc, current) => {
@@ -68,9 +70,10 @@ const Interviews = () => {
 
   // --- HANDLE MARK AS DONE ---
   const handleMarkAsDone = async (interviewId) => {
+    const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
     if (!window.confirm("Mark this interview as completed?")) return;
     try {
-      const response = await fetch(`http://localhost:5000/api/interviews/status/${interviewId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/interviews/status/${interviewId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'Completed' })

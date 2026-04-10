@@ -19,6 +19,7 @@ const Resume = () => {
   const displayFirstName = profileData?.first_name || safeUserName.split(' ')[0] || "Applicant";
   const displayLastName = profileData?.last_name || safeUserName.split(' ').slice(1).join(' ') || "";
   const displayInitial = safeUserName.charAt(0).toUpperCase();
+  const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
 
   useEffect(() => {
     if (!currentUser) {
@@ -28,7 +29,7 @@ const Resume = () => {
 
     const fetchProfile = async () => {
       try {
-        const res = await fetch(`http://localhost:5000/api/hr/profile/${userId}`);
+        const res = await fetch(`${API_BASE_URL}/api/hr/profile/${userId}`);
         if (res.ok) {
           const data = await res.json();
           setProfileData(data);

@@ -33,6 +33,7 @@ const JobDetails = () => {
   const [isSaved, setIsSaved] = useState(false); 
   const [loading, setLoading] = useState(true);
   const [imgError, setImgError] = useState(false);
+  const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
 
   useEffect(() => {
     let activeUserId = null;
@@ -45,7 +46,7 @@ const JobDetails = () => {
 
     const fetchJobData = async () => {
       try {
-        const response = await fetch(`http://localhost:5000/api/jobs/${id}`);
+        const response = await fetch(`${API_BASE_URL}/api/jobs/${id}`);
         const data = await response.json();
         if (data.error) {
           setJob(null);
@@ -97,7 +98,7 @@ const JobDetails = () => {
     setIsApplying(true);
     setShowApplyModal(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/applications/apply`, {
+      const response = await fetch(`${API_BASE_URL}/api/applications/apply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ job_id: id, user_id: user.id || user.user_id, match_score: 85 })
@@ -117,7 +118,7 @@ const JobDetails = () => {
 
     setIsSendingMessage(true);
     try {
-      const response = await fetch('http://localhost:5000/api/messages/send', {
+      const response = await fetch(`${API_BASE_URL}/api/messages/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

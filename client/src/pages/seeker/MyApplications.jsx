@@ -17,11 +17,12 @@ const MyApplications = () => {
 
   const currentUser = JSON.parse(localStorage.getItem('user'));
   const userId = currentUser?.id || currentUser?.user_id;
+  const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
 
   useEffect(() => {
     const fetchApps = async () => {
       try {
-        const res = await fetch(`http://localhost:5000/api/jobseeker/applications/${userId}`);
+        const res = await fetch(`${API_BASE_URL}/api/jobseeker/applications/${userId}`);
         const data = await res.json();
         setApplications(data);
       } catch (err) {

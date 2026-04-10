@@ -15,13 +15,14 @@ const ApplicationTracker = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isConfirmed, setIsConfirmed] = useState(false);
+  const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
 
   useEffect(() => {
     if (!targetId) { setLoading(false); return; }
 
     const fetchTrackingData = async () => {
       try {
-        const response = await fetch(`http://localhost:5000/api/jobseeker/application/${targetId}`);
+        const response = await fetch(`${API_BASE_URL}/api/jobseeker/application/${targetId}`);
         const result = await response.json();
         
         if (response.ok && !result.error) {

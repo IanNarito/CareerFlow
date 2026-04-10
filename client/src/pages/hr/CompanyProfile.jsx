@@ -48,8 +48,9 @@ const CompanyProfile = () => {
     const hrId = savedUser.id || savedUser.user_id;
 
     const fetchProfile = async () => {
+      const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
       try {
-        const response = await fetch(`http://localhost:5000/api/hr/profile/${hrId}`);
+        const response = await fetch(`${API_BASE_URL}/api/hr/profile/${hrId}`);
         const data = await response.json();
         setCompany(data);
         
@@ -80,11 +81,12 @@ const CompanyProfile = () => {
   useEffect(() => {
     const savedUser = JSON.parse(localStorage.getItem('user'));
     const actualId = savedUser?.id || savedUser?.user_id;
+    const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
     if (!actualId) return;
 
     const fetchInboxCount = async () => {
       try {
-        const res = await fetch(`http://localhost:5000/api/messages/inbox/${actualId}`);
+        const res = await fetch(`${API_BASE_URL}/api/messages/inbox/${actualId}`);
         if (res.ok) {
           const apiInbox = await res.json();
           const uniqueConversations = apiInbox.reduce((acc, current) => {
@@ -120,7 +122,7 @@ const CompanyProfile = () => {
     
     const savedUser = JSON.parse(localStorage.getItem('user'));
     const hrId = savedUser?.id || savedUser?.user_id;
-
+    const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
     // Use FormData to handle the image file upload
     const updateData = new FormData();
     Object.keys(formData).forEach(key => {
@@ -132,7 +134,7 @@ const CompanyProfile = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/hr/profile/update/${hrId}`, {
+      const response = await fetch(`${API_BASE_URL}}/api/hr/profile/update/${hrId}`, {
         method: 'PUT',
         // Do not set Content-Type header when sending FormData
         body: updateData

@@ -39,23 +39,24 @@ const HRDashboard = () => {
     }
 
     const fetchDashboardData = async () => {
+      const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
       try {
         // 1. Fetch HR Profile
-        const profileRes = await fetch(`http://localhost:5000/api/hr/profile/${actualId}`);
+        const profileRes = await fetch(`${API_BASE_URL}/api/hr/profile/${actualId}`);
         if (profileRes.ok) {
           const profileData = await profileRes.json();
           setHrProfile(profileData);
         }
 
         // 2. FETCH REAL-TIME STATS
-        const statsRes = await fetch(`http://localhost:5000/api/hr/dashboard-stats/${actualId}`);
+        const statsRes = await fetch(`${API_BASE_URL}/api/hr/dashboard-stats/${actualId}`);
         if (statsRes.ok) {
           const statsData = await statsRes.json();
           setStats(statsData);
         }
 
         // 3. FETCH RECENTLY REJECTED
-        const rejectedRes = await fetch(`http://localhost:5000/api/hr/rejected-candidates/${actualId}`);
+        const rejectedRes = await fetch(`${API_BASE_URL}/api/hr/rejected-candidates/${actualId}`);
         if (rejectedRes.ok) {
           const rejectedData = await rejectedRes.json();
           setRejectedCandidates(rejectedData);
@@ -79,8 +80,9 @@ const HRDashboard = () => {
   useEffect(() => {
     const fetchInboxCount = async () => {
       if (!actualId) return;
+      const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
       try {
-        const res = await fetch(`http://localhost:5000/api/messages/inbox/${actualId}`);
+        const res = await fetch(`${API_BASE_URL}/api/messages/inbox/${actualId}`);
         if (res.ok) {
           const apiInbox = await res.json();
           // Filter unique conversations for the badge

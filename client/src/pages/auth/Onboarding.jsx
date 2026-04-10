@@ -80,9 +80,10 @@ const Onboarding = () => {
     }
 
     const profilePayload = role === 'seeker' ? seekerData : hrData;
+    const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
 
     try {
-      const response = await fetch('http://localhost:5000/api/complete-onboarding', {
+      const response = await fetch('${API_BASE_URL}/api/complete-onboarding', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -129,12 +130,12 @@ const Onboarding = () => {
 
 const verifyOtpRequest = async (code) => {
     const savedUser = JSON.parse(localStorage.getItem('user'));
-    
     // 1. ADDED: Grab the phone number from the current state
     const phoneNumber = role === 'seeker' ? seekerData.phone : hrData.phone;
+    const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
     
     try {
-      const response = await fetch('http://localhost:5000/api/verify-otp', {
+      const response = await fetch(`${API_BASE_URL}/api/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -160,11 +161,12 @@ const verifyOtpRequest = async (code) => {
   const sendOtpRequest = async () => {
     const savedUser = JSON.parse(localStorage.getItem('user'));
     const phoneNumber = role === 'seeker' ? seekerData.phone : hrData.phone;
+    const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
     
     if (!phoneNumber) { alert("Please enter a phone number first."); return; }
     
     try {
-      const response = await fetch('http://localhost:5000/api/send-otp', {
+      const response = await fetch(`${API_BASE_URL}/api/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

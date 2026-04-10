@@ -14,6 +14,7 @@ const SavedJobs = () => {
 
   const currentUser = JSON.parse(localStorage.getItem('user'));
   const userId = currentUser?.id || currentUser?.user_id;
+  const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
 
   useEffect(() => {
     // Instead of fetching from a backend, we read from localStorage
