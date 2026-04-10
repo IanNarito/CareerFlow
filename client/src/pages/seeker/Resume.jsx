@@ -19,7 +19,10 @@ const Resume = () => {
   const displayFirstName = profileData?.first_name || safeUserName.split(' ')[0] || "Applicant";
   const displayLastName = profileData?.last_name || safeUserName.split(' ').slice(1).join(' ') || "";
   const displayInitial = safeUserName.charAt(0).toUpperCase();
-  const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
+  
+  // SAFETY NET: Clean API URL
+  const rawUrl = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL || '';
+  const API_BASE_URL = rawUrl.replace(/\/$/, '');
 
   useEffect(() => {
     if (!currentUser) {
@@ -32,22 +35,38 @@ const Resume = () => {
         const res = await fetch(`${API_BASE_URL}/api/hr/profile/${userId}`);
         if (res.ok) {
           const data = await res.json();
-          setProfileData(data);
+          // SAFETY NET: Ensure we don't set an error object as the profile
+          setProfileData(data.error ? null : data);
         } else {
           console.error("Profile not found");
+          setProfileData(null);
         }
       } catch (err) {
         console.error("Fetch Error:", err);
+        setProfileData(null);
       } finally {
         setLoading(false);
       }
     };
     
     fetchProfile();
-  }, [userId, navigate, currentUser]);
+  }, [userId, navigate, currentUser, API_BASE_URL]);
 
   const handleDownloadPDF = () => {
     window.print();
+  };
+
+  // Helper to safely parse preferred jobs JSON array
+  const renderPreferredJobs = () => {
+    if (!profileData?.preferred_jobs) return null;
+    try {
+      const jobs = Array.isArray(profileData.preferred_jobs) 
+        ? profileData.preferred_jobs 
+        : JSON.parse(profileData.preferred_jobs);
+      return Array.isArray(jobs) ? jobs.join(', ') : '';
+    } catch (e) {
+      return profileData.preferred_jobs; // Fallback to raw string if JSON fails
+    }
   };
 
   return (
@@ -102,7 +121,6 @@ const Resume = () => {
         <main className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-100 print:p-0 print:bg-white">
           <div className="max-w-[850px] mx-auto print:max-w-none print:w-full">
             
-            {/* Mobile Print Button */}
             <button 
               onClick={handleDownloadPDF}
               className="w-full sm:hidden flex items-center justify-center gap-2 px-4 py-3 mb-6 bg-blue-600 text-white font-bold rounded-xl shadow-md print:hidden"
@@ -113,15 +131,12 @@ const Resume = () => {
             {loading ? (
               <div className="text-center py-20 font-bold text-slate-400 italic print:hidden">Loading your document...</div>
             ) : (
-              /* --- THE PHYSICAL A4 RESUME PAPER --- */
               <div className="bg-white shadow-2xl print:shadow-none mx-auto border border-slate-200 print:border-none min-h-[1056px] print:min-h-0 w-full relative group">
                 
-                {/* Edit overlay (Hidden on print) */}
                 <Link to="/voice-builder" className="absolute top-4 right-4 bg-white/90 backdrop-blur border border-slate-200 p-2 rounded-lg text-slate-500 hover:text-blue-600 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity print:hidden" title="Edit via Voice Builder">
                   <Edit size={20} />
                 </Link>
 
-                {/* RESUME HEADER WITH PROFILE PICTURE */}
                 <div className="border-b-[8px] border-slate-900 p-10 sm:p-12 bg-slate-50 print:bg-white flex flex-col-reverse sm:flex-row justify-between items-start sm:items-center gap-6">
                   <div>
                     <h1 className="text-4xl sm:text-5xl font-black text-slate-900 mb-4 tracking-tight uppercase">
@@ -135,11 +150,10 @@ const Resume = () => {
                     </div>
                   </div>
 
-                  {/* DISPLAY THE FACE SCAN PICTURE HERE IF IT EXISTS */}
-                  {profileData?.profile_picture && (
+                  {profileData?.processed_image && (
                     <div className="w-28 h-28 sm:w-32 sm:h-32 shrink-0 rounded-2xl overflow-hidden border-4 border-white shadow-md bg-white">
                       <img 
-                        src={profileData.profile_picture} 
+                        src={profileData.processed_image} 
                         alt="Profile" 
                         className="w-full h-full object-cover"
                       />
@@ -147,10 +161,8 @@ const Resume = () => {
                   )}
                 </div>
 
-                {/* RESUME BODY */}
                 <div className="p-10 sm:p-12 space-y-10 text-slate-900 print:text-black">
                   
-                  {/* Summary / Description (AI Generated from VoiceBuilder) */}
                   {profileData?.description && (
                     <section>
                       <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 border-b-2 border-slate-200 pb-2 mb-4 print:border-black">Professional Summary</h3>
@@ -160,8 +172,7 @@ const Resume = () => {
                     </section>
                   )}
 
-                  {/* Skills (AI Generated) */}
-                  {profileData?.skills && (
+                  {profileData?.skills && typeof profileData.skills === 'string' && (
                     <section>
                       <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 border-b-2 border-slate-200 pb-2 mb-4 print:border-black">Core Skills & Strengths</h3>
                       <div className="flex flex-wrap gap-2">
@@ -174,7 +185,6 @@ const Resume = () => {
                     </section>
                   )}
 
-                  {/* Education / Qualifications */}
                   {(profileData?.education_level || profileData?.preferred_jobs) && (
                     <section>
                       <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 border-b-2 border-slate-200 pb-2 mb-4 print:border-black">Qualifications & Targets</h3>
@@ -189,15 +199,13 @@ const Resume = () => {
                           </div>
                         )}
                         
-                        {profileData?.preferred_jobs && (
+                        {profileData?.preferred_jobs && renderPreferredJobs() && (
                           <div className="flex items-start gap-3">
                             <Briefcase size={20} className="text-slate-400 print:text-black shrink-0 mt-0.5" />
                             <div>
                               <p className="font-extrabold text-slate-900 text-lg">Target Roles</p>
                               <p className="text-slate-600 font-medium print:text-black">
-                                {Array.isArray(profileData.preferred_jobs) 
-                                  ? profileData.preferred_jobs.join(', ') 
-                                  : JSON.parse(profileData.preferred_jobs || '[]').join(', ')}
+                                {renderPreferredJobs()}
                               </p>
                             </div>
                           </div>
@@ -206,7 +214,6 @@ const Resume = () => {
                     </section>
                   )}
 
-                  {/* Empty state notice if they haven't used the VoiceBuilder yet */}
                   {!profileData?.description && !profileData?.skills && (
                     <div className="text-center py-10 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 print:hidden">
                       <Mic size={40} className="mx-auto text-slate-300 mb-3" />

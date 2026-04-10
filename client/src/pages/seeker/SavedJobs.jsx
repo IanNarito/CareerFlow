@@ -14,20 +14,24 @@ const SavedJobs = () => {
 
   const currentUser = JSON.parse(localStorage.getItem('user'));
   const userId = currentUser?.id || currentUser?.user_id;
-  const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
+  
+  // SAFETY NET: Clean API URL
+  const rawUrl = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL || '';
+  const API_BASE_URL = rawUrl.replace(/\/$/, '');
 
   useEffect(() => {
-    // Instead of fetching from a backend, we read from localStorage
     const loadSavedJobs = () => {
       setLoading(true);
       try {
         if (userId) {
           const savedKey = `saved_jobs_${userId}`;
           const localData = JSON.parse(localStorage.getItem(savedKey) || '[]');
-          setSavedJobs(localData);
+          // SAFETY NET: Guarantee it's an array
+          setSavedJobs(Array.isArray(localData) ? localData : []);
         }
       } catch (err) {
         console.error("Error loading saved jobs:", err);
+        setSavedJobs([]);
       } finally {
         setLoading(false);
       }
@@ -39,7 +43,7 @@ const SavedJobs = () => {
   const handleRemove = (jobId) => {
     try {
       const savedKey = `saved_jobs_${userId}`;
-      const updated = savedJobs.filter(job => job.job_id !== jobId);
+      const updated = savedJobs.filter(job => String(job.job_id) !== String(jobId));
       localStorage.setItem(savedKey, JSON.stringify(updated));
       setSavedJobs(updated);
     } catch (err) {
@@ -50,7 +54,6 @@ const SavedJobs = () => {
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex overflow-hidden">
       
-      {/* --- SIDEBAR --- */}
       <aside className="hidden lg:flex w-64 flex-col bg-slate-900 text-slate-300 border-r border-slate-800 h-screen flex-shrink-0 z-20">
         <Link to="/" className="p-6 flex items-center gap-3 border-b border-slate-800 group hover:bg-slate-800/50 transition-colors cursor-pointer">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-sm group-hover:scale-105 transition-transform">
@@ -124,7 +127,7 @@ const SavedJobs = () => {
                       
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-slate-600 font-bold text-sm mb-4 mt-1">
                         <span className="flex items-center gap-1.5"><Building2 size={16} /> {job.company_name}</span>
-                        <span className="flex items-center gap-1.5"><MapPin size={16} /> {job.location}</span>
+                        <span className="flex items-center gap-1.5"><MapPin size={16} /> {job.location || 'Remote'}</span>
                         <span className="text-green-700">₱{job.salary_min} - ₱{job.salary_max}</span>
                       </div>
 

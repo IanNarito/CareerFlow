@@ -31,7 +31,10 @@ const Messages = () => {
 
   const safeUserName = currentUser?.username || "Applicant";
   const userInitial = safeUserName.charAt(0).toUpperCase();
-  const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
+  
+  // SAFETY NET: Clean API URL
+  const rawUrl = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL || '';
+  const API_BASE_URL = rawUrl.replace(/\/$/, '');
 
   const fetchInbox = async () => {
     if (!userId) return;
@@ -40,7 +43,10 @@ const Messages = () => {
       if (!res.ok) return;
       const data = await res.json();
       
-      const uniqueConversations = data.reduce((acc, current) => {
+      // SAFETY NET: Ensure data is an array before using .reduce()
+      const safeData = Array.isArray(data) ? data : [];
+      
+      const uniqueConversations = safeData.reduce((acc, current) => {
         const x = acc.find(item => (item.user_id || item.id) === (current.user_id || current.id));
         if (!x) return acc.concat([current]);
         return acc;
@@ -49,6 +55,7 @@ const Messages = () => {
       setConversations(uniqueConversations);
     } catch (err) {
       console.error("Connection error:", err);
+      setConversations([]);
     } finally {
       setLoading(false);
     }
@@ -60,7 +67,11 @@ const Messages = () => {
       const res = await fetch(`${API_BASE_URL}/api/messages/history/${userId}/${activeChatId}`);
       if (res.ok) {
         const data = await res.json();
-        const formattedHistory = data.map(m => ({
+        
+        // SAFETY NET: Ensure data is an array before using .map()
+        const safeData = Array.isArray(data) ? data : [];
+        
+        const formattedHistory = safeData.map(m => ({
             ...m,
             u_id: `db-${m.message_id || m.id}`
         }));
@@ -75,13 +86,13 @@ const Messages = () => {
     fetchInbox();
     const inboxInterval = setInterval(fetchInbox, 5000);
     return () => clearInterval(inboxInterval);
-  }, [userId]);
+  }, [userId, API_BASE_URL]);
 
   useEffect(() => {
     fetchHistory();
     const historyInterval = setInterval(fetchHistory, 3000);
     return () => clearInterval(historyInterval);
-  }, [activeChatId, userId]);
+  }, [activeChatId, userId, API_BASE_URL]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -140,10 +151,8 @@ const Messages = () => {
   };
 
   return (
-    // FIX 1: 100dvh guarantees the layout never gets crushed by the mobile browser address bar!
     <div className="h-[100dvh] bg-slate-50 font-sans text-slate-900 flex overflow-hidden">
       
-      {/* --- DESKTOP SIDEBAR (Hidden on Mobile) --- */}
       <aside className="hidden lg:flex w-64 flex-col bg-slate-900 text-slate-300 border-r border-slate-800 h-full flex-shrink-0 z-20">
         <Link to="/" className="p-6 flex items-center gap-3 border-b border-slate-800 group hover:bg-slate-800/50 transition-colors cursor-pointer">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-sm group-hover:scale-105 transition-transform">
@@ -167,7 +176,6 @@ const Messages = () => {
 
       <div className="flex-1 flex flex-col h-full overflow-hidden bg-white relative">
         
-        {/* HEADER (Only shows when Inbox List is visible on mobile) */}
         <header className={`h-16 sm:h-20 border-b border-slate-200 px-4 sm:px-8 items-center justify-between flex-shrink-0 z-10 ${showChatOnMobile ? 'hidden sm:flex' : 'flex'}`}>
           <div className="flex items-center gap-4 w-full max-w-2xl">
             <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight hidden sm:block">Inbox</h2>
@@ -192,7 +200,6 @@ const Messages = () => {
 
         <main className="flex-1 flex overflow-hidden">
           
-          {/* --- INBOX LIST --- */}
           <div className={`w-full sm:w-80 md:w-96 flex-shrink-0 border-r border-slate-200 flex-col bg-slate-50 ${showChatOnMobile ? 'hidden sm:flex' : 'flex'}`}>
             <div className="p-3 sm:p-4 border-b border-slate-200 bg-white sticky top-0 z-10">
               <div className="relative">
@@ -205,7 +212,6 @@ const Messages = () => {
               </div>
             </div>
 
-            {/* FIX 2: Added pb-20 so the bottom navigation bar doesn't cover the last message! */}
             <div className="flex-1 overflow-y-auto pb-20 sm:pb-0 custom-scrollbar">
               {loading ? (
                 <div className="p-8 text-center text-slate-400 font-bold flex flex-col items-center gap-3">
@@ -250,7 +256,6 @@ const Messages = () => {
             </div>
           </div>
 
-          {/* --- ACTIVE CHAT WINDOW --- */}
           <div className={`flex-1 flex flex-col bg-white min-h-0 ${!showChatOnMobile ? 'hidden sm:flex' : 'flex'}`}>
             {activeChat ? (
               <>
@@ -273,7 +278,6 @@ const Messages = () => {
                   <div className="flex items-center gap-1 sm:gap-2 relative">
                     <button className="p-2 sm:p-2.5 text-blue-600 hover:bg-blue-50 rounded-full transition-colors"><Phone size={20}/></button>
                     
-                    {/* OPTIONS MENU */}
                     <div className="relative">
                       <button 
                         onClick={() => setShowOptionsMenu(!showOptionsMenu)}
@@ -299,7 +303,6 @@ const Messages = () => {
 
                 <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#f8fafc] flex flex-col gap-4 min-h-0 custom-scrollbar" onClick={() => setShowOptionsMenu(false)}>
                   
-                  {/* Anti-Scam Warning Bubble */}
                   <div className="bg-yellow-50/80 border border-yellow-200/60 p-3 rounded-2xl flex items-start gap-3 w-full sm:max-w-md mx-auto mb-2 shrink-0">
                     <AlertCircle size={18} className="text-yellow-600 shrink-0 mt-0.5" />
                     <p className="text-xs font-medium text-yellow-800 leading-relaxed">Safety Tip: Legitimate employers will never ask for "processing fees" or GCash payments via chat.</p>
@@ -336,7 +339,6 @@ const Messages = () => {
                   })}
                 </div>
 
-                {/* CHAT INPUT AREA (Always pinned to bottom safely) */}
                 <div className="p-3 sm:p-5 bg-white border-t border-slate-200 shrink-0 pb-safe shadow-[0_-4px_10px_rgba(0,0,0,0.02)]" onClick={() => setShowOptionsMenu(false)}>
                   
                   {attachment && (
@@ -396,8 +398,6 @@ const Messages = () => {
         </main>
       </div>
 
-      {/* --- NATIVE MOBILE BOTTOM NAVIGATION BAR --- */}
-      {/* Hide this bar if the chat window is actively open on mobile to save screen space */}
       <nav className={`lg:hidden fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 z-50 transition-transform duration-300 flex justify-around items-center pb-safe pt-2 px-2 shadow-[0_-4px_10px_rgba(0,0,0,0.02)] ${showChatOnMobile ? 'translate-y-full opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'}`}>
         <BottomNavLink icon={<HomeIcon size={24} />} label="Home" to="/dashboard" />
         <BottomNavLink icon={<Search size={24} />} label="Jobs" to="/jobs" />
@@ -409,7 +409,6 @@ const Messages = () => {
   );
 };
 
-// --- HELPER COMPONENTS ---
 const SidebarLink = ({ icon, label, active, to = "#" }) => (
   <Link to={to} className={`flex items-center justify-between px-4 py-3 rounded-xl transition-colors font-bold ${active ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
     <div className="flex items-center gap-3">{icon}<span>{label}</span></div>

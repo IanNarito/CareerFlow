@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'; // Added useEffect
-import { Link, useNavigate, useParams } from 'react-router-dom'; // Added useParams
+import React, { useState, useEffect } from 'react'; 
+import { Link, useNavigate, useParams } from 'react-router-dom'; 
 import { 
   ArrowLeft, Building2, MapPin, Globe, ShieldCheck, 
   CheckCircle2, Users, Briefcase, Share2, 
@@ -7,27 +7,36 @@ import {
 } from 'lucide-react';
 
 const CompanyPublicPage = () => {
-  const { hrId } = useParams(); // Gets the ID from the URL (/company/1)
+  const { hrId } = useParams(); 
   const navigate = useNavigate();
 
-  // --- DATABASE STATE ---
   const [company, setCompany] = useState(null);
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
+  
+  // SAFETY NET: Clean API URL
+  const rawUrl = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL || '';
+  const API_BASE_URL = rawUrl.replace(/\/$/, '');
 
   useEffect(() => {
     const fetchPublicData = async () => {
       try {
-        // Fetch Company Bio
         const compRes = await fetch(`${API_BASE_URL}/api/public/company/${hrId}`);
         const compData = await compRes.json();
-        setCompany(compData);
+        
+        // Ensure we don't save an error as a valid company
+        if (!compRes.ok || compData.error) {
+            setCompany(null);
+        } else {
+            setCompany(compData);
+        }
 
-        // Fetch Active Jobs
         const jobsRes = await fetch(`${API_BASE_URL}/api/public/company/${hrId}/jobs`);
         const jobsData = await jobsRes.json();
-        setJobs(jobsData);
+        
+        // SAFETY NET: Prevents React from crashing if the database is empty or sends an error instead of an array
+        setJobs(Array.isArray(jobsData) ? jobsData : []);
+        
       } catch (error) {
         console.error("Error loading public page:", error);
       } finally {
@@ -35,7 +44,7 @@ const CompanyPublicPage = () => {
       }
     };
     fetchPublicData();
-  }, [hrId]);
+  }, [hrId, API_BASE_URL]);
 
   if (loading) return <div className="p-20 text-center font-bold text-slate-400">Loading Company Profile...</div>;
   if (!company) return <div className="p-20 text-center font-bold text-red-500">Company Not Found</div>;
@@ -43,7 +52,6 @@ const CompanyPublicPage = () => {
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-20">
       
-      {/* --- NAVIGATION (Design Unchanged) --- */}
       <nav className="fixed top-0 w-full z-50 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm py-3">
         <div className="max-w-[1200px] mx-auto px-6 flex items-center justify-between">
           <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-slate-600 hover:text-slate-900 font-bold transition-colors">
@@ -53,13 +61,12 @@ const CompanyPublicPage = () => {
         </div>
       </nav>
 
-      {/* --- HERO BANNER --- */}
       <div className="pt-24 pb-12 bg-slate-900 text-white relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/20 rounded-full blur-[100px] pointer-events-none"></div>
         <div className="max-w-[1200px] mx-auto px-6 relative z-10 flex flex-col md:flex-row items-center md:items-start gap-8">
           
           <div className="w-32 h-32 rounded-3xl bg-indigo-600 flex items-center justify-center text-white shrink-0 shadow-2xl font-black text-4xl">
-            {company.company_name?.[0]}
+            {company.company_name?.[0] || 'C'}
           </div>
 
           <div className="text-center md:text-left flex-1">
@@ -69,9 +76,9 @@ const CompanyPublicPage = () => {
                 <ShieldCheck size={16}/> Verified Employer
               </span>
             </div>
-            <p className="text-xl text-blue-300 font-medium mb-6">Construction & Engineering</p>
+            <p className="text-xl text-blue-300 font-medium mb-6">{company.industry || "Company"}</p>
             <div className="flex flex-wrap items-center justify-center md:justify-start gap-x-6 gap-y-3 text-slate-300 font-medium text-sm">
-              <span className="flex items-center gap-2"><MapPin size={16} className="text-slate-400"/> {company.location}</span>
+              <span className="flex items-center gap-2"><MapPin size={16} className="text-slate-400"/> {company.location || 'Location Not Specified'}</span>
               <span className="flex items-center gap-2"><Globe size={16} className="text-slate-400"/> {company.website || 'N/A'}</span>
             </div>
           </div>
@@ -98,7 +105,6 @@ const CompanyPublicPage = () => {
             </section>
           </div>
 
-          {/* RIGHT COLUMN: Real Active Jobs */}
           <div className="lg:col-span-4">
             <div className="sticky top-24">
               <div className="flex items-center gap-3 mb-6">

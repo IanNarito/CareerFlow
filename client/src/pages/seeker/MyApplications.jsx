@@ -17,26 +17,35 @@ const MyApplications = () => {
 
   const currentUser = JSON.parse(localStorage.getItem('user'));
   const userId = currentUser?.id || currentUser?.user_id;
-  const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
+  
+  // SAFETY NET: Clean API URL
+  const rawUrl = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL || '';
+  const API_BASE_URL = rawUrl.replace(/\/$/, '');
 
   useEffect(() => {
     const fetchApps = async () => {
       try {
         const res = await fetch(`${API_BASE_URL}/api/jobseeker/applications/${userId}`);
         const data = await res.json();
-        setApplications(data);
+        
+        // SAFETY NET: Ensure data is an array
+        setApplications(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Fetch Error:", err);
+        setApplications([]);
       } finally {
         setLoading(false);
       }
     };
     fetchApps();
-  }, [userId]);
+  }, [userId, API_BASE_URL]);
 
   const filteredApps = applications.filter(app => {
     if (activeFilter === 'All') return true;
-    const s = app.status.toLowerCase();
+    
+    // Fallback if status is somehow missing
+    const s = app.status ? app.status.toLowerCase() : 'pending';
+    
     if (activeFilter === 'Active') return ['pending', 'under review', 'interview scheduled'].includes(s);
     if (activeFilter === 'Offers') return s === 'hired';
     return true;
@@ -45,7 +54,6 @@ const MyApplications = () => {
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex overflow-hidden">
       
-      {/* --- SIDEBAR --- */}
       <aside className="hidden lg:flex w-64 flex-col bg-slate-900 text-slate-300 border-r border-slate-800 h-screen flex-shrink-0 z-20">
         <Link to="/" className="p-6 flex items-center gap-3 border-b border-slate-800 group hover:bg-slate-800/50 transition-colors cursor-pointer">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-sm group-hover:scale-105 transition-transform">
@@ -61,7 +69,6 @@ const MyApplications = () => {
           <SidebarLink icon={<MessageSquare size={20}/>} label="Messages" to="/messages" />
           <SidebarLink icon={<FileText size={20}/>} label="My Resume" to="/resume" />
         </nav>
-        {/* --- Settings ONLY --- */}
         <div className="p-4 border-t border-slate-800 space-y-2">
           <SidebarLink icon={<Mic size={20}/>} label="Voice Profile" to="/voice-builder" />
           <SidebarLink icon={<Settings size={20}/>} label="Settings" to="/settings" />
@@ -94,7 +101,7 @@ const MyApplications = () => {
                 <div className="w-px bg-slate-200"></div>
                 <div>
                   <p className="text-3xl font-black text-blue-600">
-                    {applications.filter(a => a.status !== 'Rejected' && a.status !== 'Hired').length}
+                    {applications.filter(a => a.status && a.status.toLowerCase() !== 'rejected' && a.status.toLowerCase() !== 'hired').length}
                   </p>
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">In Progress</p>
                 </div>
@@ -133,11 +140,11 @@ const MyApplications = () => {
 
 const ApplicationCard = ({ app }) => {
   const getTheme = (status) => {
-    const s = status.toLowerCase();
+    const s = status ? status.toLowerCase() : 'pending';
     if (s === 'interview scheduled') return { color: 'blue', text: 'Interview Stage', icon: <Calendar size={16}/>, msg: "Action Required: Check Schedule" };
     if (s === 'pending' || s === 'under review') return { color: 'yellow', text: 'In Review', icon: <Clock size={16}/>, msg: "Employer is reviewing your profile" };
     if (s === 'hired') return { color: 'green', text: 'Hired', icon: <CheckCircle2 size={16}/>, msg: "Offer Accepted - Congratulations!" };
-    return { color: 'slate', text: status, icon: <AlertCircle size={16}/>, msg: "Process closed" };
+    return { color: 'slate', text: status || 'Unknown', icon: <AlertCircle size={16}/>, msg: "Process closed" };
   };
 
   const themeConfig = getTheme(app.status);
@@ -151,7 +158,7 @@ const ApplicationCard = ({ app }) => {
   return (
     <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 hover:shadow-md transition-all flex flex-col sm:flex-row gap-5">
       <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 font-black text-xl shrink-0">
-        {app.company?.[0]}
+        {app.company?.[0] || 'C'}
       </div>
       <div className="flex-1 min-w-0">
         <h3 className="text-xl font-extrabold text-slate-900 truncate">{app.jobTitle}</h3>
@@ -167,7 +174,7 @@ const ApplicationCard = ({ app }) => {
             </div>
           </div>
           <div className="text-[10px] font-bold text-slate-400 sm:text-right">
-            Applied {new Date(app.applied_at).toLocaleDateString()}
+            Applied {app.applied_at ? new Date(app.applied_at).toLocaleDateString() : 'Recently'}
           </div>
         </div>
       </div>

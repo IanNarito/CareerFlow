@@ -21,20 +21,21 @@ const VoiceBuilder = () => {
   const [manualMode, setManualMode] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  
-  // NEW: State to hide the picture box if the image doesn't exist yet
   const [imgError, setImgError] = useState(false);
-  const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
+  
   const savedUser = JSON.parse(localStorage.getItem('user'));
   const userId = savedUser?.id || savedUser?.user_id;
+
+  // SAFETY NET: Clean API URL
+  const rawUrl = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL || '';
+  const API_BASE_URL = rawUrl.replace(/\/$/, '');
   
   const [resumeData, setResumeData] = useState({
     name: savedUser?.username || "Applicant", 
     email: savedUser?.email || "email@example.com",
     phone: "Provided in Onboarding", 
     location: "Philippines",
-    // SMART FIX: Predict the exact URL the Python script generated!
-    profile_picture: userId ? `${API_BASE_URL}}/uploads/profile_${userId}.jpg` : null, 
+    profile_picture: userId ? `${API_BASE_URL}/uploads/profile_${userId}.jpg` : null, 
     role: "", 
     company: "", 
     duration: "Recent Experience", 
@@ -58,11 +59,14 @@ const VoiceBuilder = () => {
         const res = await fetch(`${API_BASE_URL}/api/hr/profile/${userId}`);
         if (res.ok) {
           const data = await res.json();
-          setResumeData(prev => ({
-            ...prev,
-            phone: data.phone || prev.phone,
-            location: data.location || prev.location
-          }));
+          // SAFETY NET: Ignore errors from the DB gracefully
+          if (!data.error) {
+            setResumeData(prev => ({
+              ...prev,
+              phone: data.phone || prev.phone,
+              location: data.location || prev.location
+            }));
+          }
         }
       } catch (err) {
         console.error("Failed to load profile data:", err);
@@ -84,7 +88,7 @@ const VoiceBuilder = () => {
       };
       recognitionRef.current.onend = () => setIsListening(false);
     }
-  }, [navigate, userId]);
+  }, [navigate, userId, API_BASE_URL]);
 
   const handleMicToggle = () => {
     if (isListening) recognitionRef.current.stop();
@@ -103,31 +107,29 @@ const VoiceBuilder = () => {
       });
       
       const aiData = await response.json();
-      console.log("AI Enhanced Data Received:", aiData);
+      
+      // SAFETY NET: Ensure the AI didn't crash and return an HTML error
+      if (aiData && !aiData.error) {
+        const safeArray = (...args) => {
+          let combined = [];
+          args.forEach(val => {
+            if (Array.isArray(val)) combined = [...combined, ...val];
+            else if (typeof val === 'string' && val.trim()) combined.push(val);
+          });
+          return combined.filter(Boolean); 
+        };
 
-      // SMART FIX: A super-flexible parser that catches any weird JSON format the AI throws at it!
-      const safeArray = (...args) => {
-        let combined = [];
-        args.forEach(val => {
-          if (Array.isArray(val)) combined = [...combined, ...val];
-          else if (typeof val === 'string' && val.trim()) combined.push(val);
-        });
-        return combined.filter(Boolean); // Remove empties
-      };
-
-      setResumeData(prev => ({
-        ...prev,
-        // Catch multiple variations of Role and Company
-        role: aiData.role || aiData.job_title || aiData.title || prev.role,
-        company: aiData.company || aiData.company_name || aiData.employer || prev.company,
-        
-        // Use safeArray to catch plurals, singulars, and string formats
-        responsibilities: [...prev.responsibilities, ...safeArray(aiData.responsibilities, aiData.responsibility, aiData.tasks)],
-        skills: [...new Set([...prev.skills, ...safeArray(aiData.skills, aiData.skill, aiData.technical_skills)])],
-        achievements: [...prev.achievements, ...safeArray(aiData.achievements, aiData.achievement)],
-        certifications: [...prev.certifications, ...safeArray(aiData.certifications, aiData.certification, aiData.licenses, aiData.license)],
-        softSkills: [...new Set([...prev.softSkills, ...safeArray(aiData.softSkills, aiData.soft_skills, aiData.soft_skill)])]
-      }));
+        setResumeData(prev => ({
+          ...prev,
+          role: aiData.role || aiData.job_title || aiData.title || prev.role,
+          company: aiData.company || aiData.company_name || aiData.employer || prev.company,
+          responsibilities: [...prev.responsibilities, ...safeArray(aiData.responsibilities, aiData.responsibility, aiData.tasks)],
+          skills: [...new Set([...prev.skills, ...safeArray(aiData.skills, aiData.skill, aiData.technical_skills)])],
+          achievements: [...prev.achievements, ...safeArray(aiData.achievements, aiData.achievement)],
+          certifications: [...prev.certifications, ...safeArray(aiData.certifications, aiData.certification, aiData.licenses, aiData.license)],
+          softSkills: [...new Set([...prev.softSkills, ...safeArray(aiData.softSkills, aiData.soft_skills, aiData.soft_skill)])]
+        }));
+      }
 
       setTranscript("");
       
@@ -204,7 +206,6 @@ const VoiceBuilder = () => {
 
       <main className="flex-1 flex flex-col lg:flex-row h-[calc(100vh-80px)]">
         
-        {/* LEFT SIDE: AI Voice Interface */}
         <div className="flex-1 flex flex-col items-center justify-center p-8 lg:p-16 relative overflow-hidden bg-slate-900">
           <div className={`absolute w-96 h-96 rounded-full transition-all duration-1000 blur-[120px] pointer-events-none ${isListening ? 'bg-blue-600/30 animate-pulse' : 'bg-blue-900/10'}`}></div>
 
@@ -265,7 +266,6 @@ const VoiceBuilder = () => {
           )}
         </div>
 
-        {/* RIGHT SIDE: Expanded ATS Resume Preview */}
         <div className="lg:w-[45%] bg-slate-100 border-l border-slate-200 p-4 sm:p-8 overflow-y-auto">
           <div className="flex items-center justify-between mb-6">
             <h3 className="font-bold text-slate-500 uppercase tracking-wider text-sm flex items-center gap-2">
@@ -275,7 +275,6 @@ const VoiceBuilder = () => {
           
           <div className="bg-white shadow-2xl w-full max-w-2xl mx-auto min-h-[800px] border border-slate-200 mb-10">
             
-            {/* UPDATED HEADER: Includes the 2x2 Picture logic */}
             <div className="border-b-[6px] border-slate-900 p-8 sm:p-10 flex flex-col-reverse sm:flex-row justify-between items-start sm:items-center gap-6">
               <div>
                 <h1 className="text-3xl sm:text-4xl font-black text-slate-900 mb-4 uppercase tracking-tight">{resumeData.name}</h1>
@@ -285,14 +284,13 @@ const VoiceBuilder = () => {
                 </div>
               </div>
               
-              {/* LIVE PROFILE PICTURE - Only shows if the image exists and loads successfully */}
               {!imgError && resumeData.profile_picture && (
                 <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 rounded-2xl overflow-hidden border-4 border-slate-200 shadow-md bg-slate-100">
                   <img 
                     src={resumeData.profile_picture} 
                     alt="Profile" 
                     className="w-full h-full object-cover"
-                    onError={() => setImgError(true)} // SMART FIX: Hides the box entirely if no photo was taken
+                    onError={() => setImgError(true)} 
                   />
                 </div>
               )}

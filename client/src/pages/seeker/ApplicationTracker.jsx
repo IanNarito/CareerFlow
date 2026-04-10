@@ -15,7 +15,10 @@ const ApplicationTracker = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isConfirmed, setIsConfirmed] = useState(false);
-  const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
+  
+  // SAFETY NET: Clean API URL
+  const rawUrl = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL || '';
+  const API_BASE_URL = rawUrl.replace(/\/$/, '');
 
   useEffect(() => {
     if (!targetId) { setLoading(false); return; }
@@ -47,7 +50,8 @@ const ApplicationTracker = () => {
     </div>
   );
   
-  if (!data || !data.status) return (
+  // SAFTEY NET: Catch empty DB returns gracefully
+  if (!data || !data?.status) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 text-center font-bold text-slate-500 gap-4">
       <AlertCircle size={64} className="text-slate-300 mb-2" />
       <h2 className="text-2xl text-slate-900">Application not found</h2>
@@ -55,7 +59,6 @@ const ApplicationTracker = () => {
     </div>
   );
 
-  // Helper to determine stage index
   const getStageIndex = (status) => {
     if (!status) return 0;
     const s = status.toLowerCase();
@@ -70,7 +73,6 @@ const ApplicationTracker = () => {
   const isRejected = data.status.toLowerCase() === 'rejected';
   const isHired = data.status.toLowerCase() === 'hired';
 
-  // Dynamic Content based on status
   const getNextStepAdvice = () => {
     if (isRejected) return { title: "Application Closed", text: "The employer has decided to move forward with other candidates. Don't give up! Keep applying to other roles.", icon: <AlertCircle className="text-red-500" />, bg: "bg-red-50 border-red-200" };
     if (isHired) return { title: "Congratulations!", text: "You got the job! The employer will reach out shortly with your onboarding details and contract.", icon: <Sparkles className="text-green-500" />, bg: "bg-green-50 border-green-200" };
@@ -85,7 +87,6 @@ const ApplicationTracker = () => {
 
   const STAGES = ["Sent", "Reviewing", "Interview", "Decision"];
 
-  // FIXED: Added back the timeline array that was missing!
   const timeline = [
     { title: "Application Sent", desc: "Your profile was successfully delivered.", date: data.applied_at ? new Date(data.applied_at).toLocaleDateString() : "Recently", status: currentStage >= 0 ? 'completed' : 'pending' },
     { title: "Under Review", desc: "The employer is reviewing your qualifications.", date: currentStage >= 1 ? "In Progress" : "Pending", status: currentStage === 1 ? 'active' : currentStage > 1 ? 'completed' : 'pending' },
@@ -95,8 +96,6 @@ const ApplicationTracker = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-24">
-      
-      {/* HEADER */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
         <div className="max-w-[1000px] mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
           <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-slate-500 hover:text-slate-900 font-bold transition-colors">
@@ -104,14 +103,13 @@ const ApplicationTracker = () => {
           </button>
           <div className="text-right">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tracking ID</p>
-            <p className="text-sm font-bold text-slate-900">#{data.app_id.toString().padStart(5, '0')}</p>
+            <p className="text-sm font-bold text-slate-900">#{data.app_id?.toString().padStart(5, '0')}</p>
           </div>
         </div>
       </header>
 
       <main className="max-w-[1000px] mx-auto px-4 sm:px-6 pt-8 space-y-6">
         
-        {/* TOP: Progress Stepper */}
         <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm">
            <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 text-center">Application Status</h3>
            <div className="relative flex justify-between items-center max-w-2xl mx-auto">
@@ -134,11 +132,8 @@ const ApplicationTracker = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          
-          {/* LEFT COLUMN: Main Details */}
           <div className="lg:col-span-8 space-y-6">
             
-            {/* Job Snapshot Card */}
             <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row gap-6 relative overflow-hidden">
               <div className="w-20 h-20 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-inner font-black text-3xl">
                 {data.company_name?.[0] || 'C'}
@@ -157,7 +152,6 @@ const ApplicationTracker = () => {
               </div>
             </div>
 
-            {/* Dynamic Advice Card */}
             <div className={`rounded-3xl p-6 border shadow-sm flex gap-4 items-start ${advice.bg}`}>
               <div className="mt-1 bg-white p-2 rounded-full shadow-sm shrink-0">{advice.icon}</div>
               <div>
@@ -166,7 +160,6 @@ const ApplicationTracker = () => {
               </div>
             </div>
 
-            {/* Interview Invite (Conditional) */}
             {currentStage === 2 && data.interview_date && (
               <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-800 relative overflow-hidden animate-in fade-in slide-in-from-bottom-4">
                 <div className="absolute -top-20 -right-20 w-64 h-64 bg-blue-600/30 rounded-full blur-[80px]"></div>
@@ -208,10 +201,7 @@ const ApplicationTracker = () => {
             )}
           </div>
 
-          {/* RIGHT COLUMN: Sidebar Stats */}
           <div className="lg:col-span-4 space-y-6">
-            
-            {/* Match Score Ring */}
             <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm text-center flex flex-col items-center">
               <h3 className="font-bold text-slate-900 mb-6 w-full text-left">Your Match Score</h3>
               <div className="relative w-32 h-32 flex items-center justify-center mb-4">
@@ -226,7 +216,6 @@ const ApplicationTracker = () => {
               <p className="text-sm font-medium text-slate-500">Based on your Voice Profile and the employer's required skills.</p>
             </div>
 
-            {/* Quick Actions */}
             <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-3">
               <h3 className="font-bold text-slate-900 mb-4">Quick Actions</h3>
               <Link to="/messages" className="w-full py-3.5 bg-slate-50 border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 transition-colors flex items-center justify-center gap-2">
@@ -236,11 +225,9 @@ const ApplicationTracker = () => {
                 <Briefcase size={18} /> View Job Details
               </Link>
             </div>
-
           </div>
         </div>
 
-        {/* BOTTOM: Detailed Timeline History */}
         <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm mt-6">
           <h3 className="text-xl font-bold text-slate-900 mb-8">Application History</h3>
           <div className="relative pl-4 sm:pl-8 max-w-3xl">
