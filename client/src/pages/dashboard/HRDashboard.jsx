@@ -104,7 +104,6 @@ const HRDashboard = () => {
   }, [actualId]);
 
   if (loading) return <div className="p-20 text-center flex flex-col items-center justify-center font-bold text-slate-600"><Loader2 size={40} className="animate-spin mb-4 text-indigo-600"/>Loading HR Workspace...</div>;
-
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex">
       

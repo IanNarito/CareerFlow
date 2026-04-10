@@ -16,7 +16,7 @@ const Register = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
     e.preventDefault();
     
     // Web Security: Basic client-side validation
@@ -29,23 +29,23 @@ const Register = () => {
     const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
 
     try {
-      // Connecting to your Node.js backend on Port 5000
-      const response = await fetch('${API_BASE_URL}/api/register', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      fullName: formData.fullName, // MUST match the backend deconstruction
-      email: formData.email,
-      password: formData.password,
-      role: 'job_seeker'
-    }),
-  });
+      // FIX: Swapped single quotes (' ') for backticks (` `) below
+      const response = await fetch(`${API_BASE_URL}/api/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: formData.fullName, 
+          email: formData.email,
+          password: formData.password,
+          role: 'job_seeker'
+        }),
+      });
 
       const data = await response.json();
 
       if (response.ok) {
         alert("Registration successful!");
-        navigate('/login'); // Redirect to login page
+        navigate('/login'); 
       } else {
         alert(data.error || "Registration failed");
       }

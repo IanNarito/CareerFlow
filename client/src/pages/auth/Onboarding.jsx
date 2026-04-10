@@ -83,7 +83,8 @@ const Onboarding = () => {
     const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
 
     try {
-      const response = await fetch('${API_BASE_URL}/api/complete-onboarding', {
+      // FIX: Changed single quotes to backticks here!
+      const response = await fetch(`${API_BASE_URL}/api/complete-onboarding`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
