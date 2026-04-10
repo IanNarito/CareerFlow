@@ -89,28 +89,29 @@ const Settings = () => {
   }, [hrId]);
 
   // --- HANDLE ACCOUNT UPDATE ---
-  const handleUpdateAccount = async (e) => {
-    e.preventDefault();
+const handleUpdateAccount = async (e) => {
+    e.preventDefault(); // <--- THIS IS THE MAGIC LINE. It stops the browser from leaving the page!
     setIsSaving(true);
+    
+    const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/hr/profile/personal/${hrId}`, {
-        method: 'PUT',
+        method: 'PUT', // (or POST, depending on your backend setup)
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(hrProfile)
+        body: JSON.stringify(hrProfile) // Or whatever your state variable is named
       });
 
+      const data = await response.json();
+
       if (response.ok) {
-        alert("Personal settings updated successfully!");
-        
-        // Update local storage email just in case
-        const updatedUser = { ...savedUser, email: hrProfile.email };
-        localStorage.setItem('user', JSON.stringify(updatedUser));
+        alert("Profile updated successfully!"); // Shows a pop-up instead of leaving the page
       } else {
-        alert("Failed to update settings.");
+        alert(data.error || "Failed to update profile.");
       }
     } catch (error) {
-      console.error("Update error:", error);
-      alert("Network error occurred.");
+      console.error("Update Error:", error);
+      alert("Could not connect to the server.");
     } finally {
       setIsSaving(false);
     }
