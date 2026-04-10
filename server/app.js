@@ -22,7 +22,10 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // --- MIDDLEWARE ---
-app.use(cors());
+app.use(cors({
+    origin: 'https://main.dtrl0392tieit.amplifyapp.com', // Replace with your exact Amplify URL
+    credentials: true // Important if you are using cookies/sessions
+}));
 app.use(express.json());
 app.use('/uploads', express.static('public/uploads'));
 

@@ -15,11 +15,13 @@ const Login = () => {
   };
 
   const handleSubmit = async (e) => {
+    const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
     e.preventDefault();
     setLoading(true);
 
+
     try {
-      const response = await fetch('http://localhost:5000/api/login', {
+      const response = await fetch('${API_BASE_URL}/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
