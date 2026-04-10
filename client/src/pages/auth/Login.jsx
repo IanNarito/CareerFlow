@@ -14,14 +14,14 @@ const Login = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
     const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
     e.preventDefault();
     setLoading(true);
 
-
     try {
-      const response = await fetch('${API_BASE_URL}/api/login', {
+      // FIX: Changed single quotes to backticks below!
+      const response = await fetch(`${API_BASE_URL}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -30,19 +30,18 @@ const Login = () => {
       const data = await response.json();
 
       if (response.ok) {
-        // 1. Store user session (This should include user_id, role, and is_onboarded)
+        // 1. Store user session
         localStorage.setItem('user', JSON.stringify(data));
         
         alert(`Welcome back, ${data.username}!`);
 
-        // 2. NEW LOGIC: Check Onboarding status from your MySQL table
-        // 0 usually means false in MySQL TINYINT
+        // 2. Check Onboarding status
         if (data.is_onboarded === 0 || data.is_onboarded === false) {
           navigate('/onboarding'); 
           return; 
         }
 
-        // 3. Role-Based Redirection (For users who have already onboarded)
+        // 3. Role-Based Redirection
         if (data.role === 'hr' || data.role === 'admin') {
           navigate('/hr-dashboard');
         } else {

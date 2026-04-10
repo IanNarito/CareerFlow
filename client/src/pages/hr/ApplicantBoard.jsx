@@ -107,7 +107,7 @@ const ApplicantBoard = () => {
     );
 
     try {
-      const response = await fetch(`http://localhost:5000/api/applications/status/${draggedId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/applications/status/${draggedId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: targetStatus })
