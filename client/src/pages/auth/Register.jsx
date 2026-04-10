@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, ArrowRight, LayoutDashboard, Sparkles, ArrowLeft } from 'lucide-react';
 
 const Register = () => {
-  const navigate = useNavigate(); // For redirecting after successful CRUD action
+  const navigate = useNavigate(); 
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -16,20 +16,21 @@ const Register = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Web Security: Basic client-side validation
     if (formData.password !== formData.confirmPassword) {
       alert("Passwords do not match!");
       return;
     }
 
     setLoading(true);
-    const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
+    
+    // SAFETY NET
+    const rawUrl = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL || '';
+    const API_BASE_URL = rawUrl.replace(/\/$/, ''); 
 
     try {
-      // FIX: Swapped single quotes (' ') for backticks (` `) below
       const response = await fetch(`${API_BASE_URL}/api/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -62,7 +63,6 @@ const handleSubmit = async (e) => {
       
       {/* Left Panel: Image & Branding */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-slate-900 flex-col justify-between p-12">
-        {/* Background Image with Dark Blue/Slate Overlay */}
         <div className="absolute inset-0">
           <img 
             src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=1200&q=80" 
@@ -72,7 +72,6 @@ const handleSubmit = async (e) => {
           <div className="absolute inset-0 bg-gradient-to-br from-blue-900/90 to-slate-900/95"></div>
         </div>
 
-        {/* Branding */}
         <div className="relative z-10">
           <Link to="/" className="flex items-center gap-2 text-white font-bold text-2xl tracking-tight mb-8 hover:opacity-80 transition-opacity">
             <LayoutDashboard size={28} />
@@ -80,7 +79,6 @@ const handleSubmit = async (e) => {
           </Link>
         </div>
 
-        {/* Value Proposition */}
         <div className="relative z-10 max-w-md">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-bold mb-6 backdrop-blur-sm border border-blue-500/30">
             <Sparkles size={14} /> Free for Job Seekers
@@ -89,7 +87,7 @@ const handleSubmit = async (e) => {
             Build a resume that stands out from the crowd.
           </h2>
           <p className="text-slate-300 text-sm leading-relaxed mb-8">
-            Join thousands of professionals who have transformed their job search. Create an account to unlock our AI-powered resume builder and personalized job matches[cite: 6, 45, 70].
+            Join thousands of professionals who have transformed their job search. Create an account to unlock our AI-powered resume builder and personalized job matches.
           </p>
           
           <div className="flex -space-x-4">
@@ -100,7 +98,6 @@ const handleSubmit = async (e) => {
           </div>
         </div>
         
-        {/* Footer info */}
         <div className="relative z-10 text-slate-400 text-xs">
           © 2026 CareerFlow Technologies. All rights reserved.
         </div>

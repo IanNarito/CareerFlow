@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom'; // Added useNavigate
+import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, ArrowRight, LayoutDashboard, CheckCircle2, ArrowLeft } from 'lucide-react';
 
 const Login = () => {
-  const navigate = useNavigate(); // Hook to redirect user after successful login
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -14,13 +14,15 @@ const Login = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-const handleSubmit = async (e) => {
-    const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
+    // SAFETY NET: Strips trailing slashes and prevents "undefined" string errors
+    const rawUrl = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL || '';
+    const API_BASE_URL = rawUrl.replace(/\/$/, ''); 
+
     try {
-      // CAREFUL: These are backticks ( ` ), not single quotes ( ' )!
       const response = await fetch(`${API_BASE_URL}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -31,7 +33,7 @@ const handleSubmit = async (e) => {
 
       if (response.ok) {
         localStorage.setItem('user', JSON.stringify(data));
-        alert(`Welcome back, ${data.username}!`);
+        alert(`Welcome back, ${data?.username || 'User'}!`);
 
         if (data.is_onboarded === 0 || data.is_onboarded === false) {
           navigate('/onboarding'); 
@@ -59,7 +61,6 @@ const handleSubmit = async (e) => {
       
       {/* Left Panel: Image & Branding */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-blue-900 flex-col justify-between p-12">
-        {/* Background Image with Blue Overlay */}
         <div className="absolute inset-0">
           <img 
             src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80" 
@@ -69,7 +70,6 @@ const handleSubmit = async (e) => {
           <div className="absolute inset-0 bg-gradient-to-t from-blue-900/90 to-blue-900/40"></div>
         </div>
 
-        {/* Branding */}
         <div className="relative z-10">
           <Link to="/" className="flex items-center gap-2 text-white font-bold text-2xl tracking-tight mb-8 hover:opacity-80 transition-opacity">
             <LayoutDashboard size={28} />
@@ -77,7 +77,6 @@ const handleSubmit = async (e) => {
           </Link>
         </div>
 
-        {/* Value Proposition */}
         <div className="relative z-10 max-w-md">
           <h2 className="text-3xl font-bold text-white mb-6 leading-tight">
             Accelerate your career journey with intelligent tools.
@@ -98,7 +97,6 @@ const handleSubmit = async (e) => {
           </div>
         </div>
         
-        {/* Footer info */}
         <div className="relative z-10 text-blue-200 text-xs">
           © 2026 CareerFlow Technologies. All rights reserved.
         </div>
