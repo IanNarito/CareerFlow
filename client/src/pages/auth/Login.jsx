@@ -20,7 +20,7 @@ const handleSubmit = async (e) => {
     setLoading(true);
 
     try {
-      // FIX: Changed single quotes to backticks below!
+      // CAREFUL: These are backticks ( ` ), not single quotes ( ' )!
       const response = await fetch(`${API_BASE_URL}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -30,22 +30,18 @@ const handleSubmit = async (e) => {
       const data = await response.json();
 
       if (response.ok) {
-        // 1. Store user session
         localStorage.setItem('user', JSON.stringify(data));
-        
         alert(`Welcome back, ${data.username}!`);
 
-        // 2. Check Onboarding status
         if (data.is_onboarded === 0 || data.is_onboarded === false) {
           navigate('/onboarding'); 
           return; 
         }
 
-        // 3. Role-Based Redirection
         if (data.role === 'hr' || data.role === 'admin') {
           navigate('/hr-dashboard');
         } else {
-          navigate('/Dashboard'); 
+          navigate('/dashboard'); 
         }
       } else {
         alert(data.error || "Login failed.");
