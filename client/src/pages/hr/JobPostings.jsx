@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, Briefcase, Calendar as CalendarIcon, 
   Settings, Bell, Search, Plus, Building2, Filter, 
   ChevronDown, Edit3, MoreVertical, Eye, MapPin, DollarSign,
-  X, CheckCircle2, PauseCircle, Trash2
+  X, CheckCircle2, PauseCircle, Trash2, MessageSquare
 } from 'lucide-react';
 
 const JobPostings = () => {
@@ -119,7 +119,8 @@ const JobPostings = () => {
           <SidebarLink icon={<LayoutDashboard size={20}/>} label="Dashboard" to="/hr-dashboard" />
           <SidebarLink icon={<Briefcase size={20}/>} label="Job Postings" active to="/hr/jobs" />
           <SidebarLink icon={<Users size={20}/>} label="Candidates" badge={18} to="/hr/board" />
-          <SidebarLink icon={<MessageSquare size={20}/>} label="Messages" to="/hr-messages" badge={conversations.length} />
+          {/* CRITICAL FIX: Removed the undefined 'conversations' variable */}
+          <SidebarLink icon={<MessageSquare size={20}/>} label="Messages" to="/hr-messages" />
           <SidebarLink icon={<CalendarIcon size={20}/>} label="Interviews" to="/hr/interviews"/>
           <SidebarLink icon={<Building2 size={20}/>} label="Company Profile" to="/hr/profile"/>
         </nav>
