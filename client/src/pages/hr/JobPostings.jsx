@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react'; 
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, Briefcase, Calendar as CalendarIcon, 
   Settings, Bell, Search, Plus, Building2, Filter, 
-  Edit3, MoreVertical, Eye, MapPin, DollarSign,
-  X, CheckCircle2, PauseCircle, Trash2, MessageSquare, LogOut
+  ChevronDown, Edit3, MoreVertical, Eye, MapPin, DollarSign,
+  X, CheckCircle2, PauseCircle, Trash2
 } from 'lucide-react';
 
 const JobPostings = () => {
@@ -14,26 +14,25 @@ const JobPostings = () => {
   const [jobs, setJobs] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [companyName, setCompanyName] = useState("");
-  
-  const [conversations, setConversations] = useState([]); 
 
   // Slide-over Edit State
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingJob, setEditingJob] = useState(null);
 
-  // --- LOGOUT HANDLER ---
-  const handleLogout = () => {
-    if(window.confirm("Are you sure you want to log out?")) {
-      localStorage.removeItem('user');
-      navigate('/login');
-    }
-  };
+  // SAFETY NET: Clean API URL
+  const rawUrl = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL || '';
+  const API_BASE_URL = rawUrl.replace(/\/$/, '');
 
-  const fetchJobs = async (hrId) => {
-    const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
+  const fetchJobs = async () => {
+    const savedUser = JSON.parse(localStorage.getItem('user'));
+    const hrId = savedUser?.id || savedUser?.user_id;
+    if (!hrId) return navigate('/login');
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/hr/jobs/${hrId}`);
       const data = await response.json();
+      
+      // Ensure data is an array before setting state
       setJobs(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error loading jobs:", error);
@@ -44,29 +43,18 @@ const JobPostings = () => {
   };
 
   useEffect(() => {
-    // --- 1. STRICT HR SECURITY BOUNCER ---
-    const savedUser = localStorage.getItem('user');
-    if (!savedUser) {
-      navigate('/login');
-      return;
-    }
-    
-    const parsedUser = JSON.parse(savedUser);
-    if (parsedUser.role !== 'hr') {
-      navigate('/dashboard'); 
-      return;
-    }
-
-    // --- 2. FETCH DATA ---
-    const hrId = parsedUser.id || parsedUser.user_id;
-    fetchJobs(hrId);
+    fetchJobs();
     
     // Get Company Profile for Header
-    fetch(`${API_BASE_URL}/api/hr/profile/${hrId}`)
-      .then(res => res.json())
-      .then(data => setCompanyName(data.company_name || "Company"))
-      .catch(() => setCompanyName("Company"));
-  }, [navigate]);
+    const savedUser = JSON.parse(localStorage.getItem('user'));
+    if (savedUser) {
+      const hrId = savedUser.id || savedUser.user_id;
+      fetch(`${API_BASE_URL}/api/hr/profile/${hrId}`)
+        .then(res => res.json())
+        .then(data => setCompanyName(data.company_name || "Company Admin"))
+        .catch(() => setCompanyName("Company Admin"));
+    }
+  }, [navigate, API_BASE_URL]);
 
   const openEditPanel = (job) => {
     setEditingJob({ ...job });
@@ -87,32 +75,38 @@ const JobPostings = () => {
         body: JSON.stringify(editingJob)
       });
       if (response.ok) {
-        const savedUser = JSON.parse(localStorage.getItem('user'));
-        fetchJobs(savedUser.id || savedUser.user_id);
+        fetchJobs();
         closeEditPanel();
+      } else {
+        const data = await response.json();
+        alert(data.error || "Failed to update job.");
       }
     } catch (error) {
-      alert("Failed to update job.");
+      console.error("Save error:", error);
+      alert("Failed to connect to the server.");
     }
   };
 
   const handleDeleteJob = async (id) => {
-    if(!window.confirm("Delete this posting? This will remove it from the public board forever.")) return;
+    if(!window.confirm("Are you sure you want to delete this posting?")) return;
     try {
       const response = await fetch(`${API_BASE_URL}/api/jobs/delete/${id}`, { method: 'DELETE' });
       if (response.ok) {
-        const savedUser = JSON.parse(localStorage.getItem('user'));
-        fetchJobs(savedUser.id || savedUser.user_id);
+        fetchJobs();
         closeEditPanel();
+      } else {
+        alert("Failed to delete job.");
       }
     } catch (error) {
       console.error("Delete error:", error);
+      alert("Failed to connect to the server.");
     }
   };
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex overflow-hidden">
       
+      {/* --- LEFT SIDEBAR --- */}
       <aside className="hidden lg:flex w-64 flex-col bg-slate-900 text-slate-300 border-r border-slate-800 h-screen flex-shrink-0 z-20">
         <div className="p-6 flex items-center gap-3 border-b border-slate-800">
           <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-sm">
@@ -124,24 +118,17 @@ const JobPostings = () => {
         <nav className="flex-1 px-4 py-8 space-y-2">
           <SidebarLink icon={<LayoutDashboard size={20}/>} label="Dashboard" to="/hr-dashboard" />
           <SidebarLink icon={<Briefcase size={20}/>} label="Job Postings" active to="/hr/jobs" />
-          <SidebarLink icon={<Users size={20}/>} label="Candidates" to="/hr/board" />
-          <SidebarLink icon={<MessageSquare size={20}/>} label="Messages" to="/hr-messages" badge={conversations.length} />
+          <SidebarLink icon={<Users size={20}/>} label="Candidates" badge={18} to="/hr/board" />
           <SidebarLink icon={<CalendarIcon size={20}/>} label="Interviews" to="/hr/interviews"/>
           <SidebarLink icon={<Building2 size={20}/>} label="Company Profile" to="/hr/profile"/>
         </nav>
 
-        <div className="p-4 border-t border-slate-800 space-y-2">
+        <div className="p-4 border-t border-slate-800">
           <SidebarLink icon={<Settings size={20}/>} label="Settings" to="/hr/settings"/>
-          <button 
-            onClick={handleLogout} 
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-bold text-slate-400 hover:bg-red-950 hover:text-red-500"
-          >
-            <LogOut size={20} />
-            <span>Log Out</span>
-          </button>
         </div>
       </aside>
 
+      {/* --- MAIN CONTENT AREA --- */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
         
         <header className="h-20 bg-white border-b border-slate-200 px-8 flex items-center justify-between flex-shrink-0 z-10">
@@ -160,7 +147,7 @@ const JobPostings = () => {
                 <p className="text-xs text-slate-500 mt-1">HR Admin</p>
               </div>
               <div className="w-10 h-10 rounded-full bg-slate-200 border border-slate-300 flex items-center justify-center text-slate-600 font-bold uppercase">
-                {companyName.charAt(0) || "C"}
+                {companyName.charAt(0)}
               </div>
             </div>
           </div>
@@ -218,9 +205,14 @@ const JobPostings = () => {
 
                       <td className="py-5 px-6">
                         <div className="flex gap-4">
-                          <div className="text-center cursor-pointer hover:bg-slate-100 p-2 rounded-lg transition-colors" onClick={() => navigate('/hr/board')}>
-                            <p className="font-bold text-indigo-600 text-lg">{job.applicant_count || 0}</p>
+                          <div className="text-center">
+                            <p className="font-bold text-slate-900">0</p>
                             <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Applicants</p>
+                          </div>
+                          <div className="w-px bg-slate-200"></div>
+                          <div className="text-center">
+                            <p className="font-bold text-slate-900">0</p>
+                            <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Views</p>
                           </div>
                         </div>
                       </td>
@@ -242,7 +234,12 @@ const JobPostings = () => {
                   ))}
                   {jobs.length === 0 && !loading && (
                     <tr>
-                       <td colSpan="5" className="py-20 text-center text-slate-400 font-bold">No job postings found. Click "Post New Job" to start hiring!</td>
+                       <td colSpan="5" className="py-20 text-center text-slate-400 font-bold">No job postings found.</td>
+                    </tr>
+                  )}
+                  {loading && (
+                    <tr>
+                       <td colSpan="5" className="py-20 text-center text-slate-400 font-bold italic">Loading jobs...</td>
                     </tr>
                   )}
                 </tbody>
@@ -272,51 +269,40 @@ const JobPostings = () => {
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-2">Job Status</label>
                   <select 
-                    value={editingJob?.status}
+                    value={editingJob?.status || 'active'}
                     onChange={(e) => setEditingJob({...editingJob, status: e.target.value})}
                     className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-600 font-bold text-slate-900"
                   >
-                    <option value="active">🟢 Active (Visible)</option>
-                    <option value="paused">🟡 Paused (Hidden)</option>
-                    <option value="draft">⚪ Draft (Private)</option>
+                    <option value="active"> Active</option>
+                    <option value="paused"> Paused</option>
+                    <option value="draft"> Draft</option>
                   </select>
                 </div>
 
                 <div className="border-t border-slate-100 pt-6">
                   <label className="block text-sm font-bold text-slate-700 mb-2">Job Title</label>
-                  <input type="text" required value={editingJob?.title} onChange={(e) => setEditingJob({...editingJob, title: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:ring-2 focus:ring-indigo-600 outline-none" />
+                  <input type="text" value={editingJob?.title || ''} onChange={(e) => setEditingJob({...editingJob, title: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900" />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">Location</label>
-                    <input type="text" required value={editingJob?.location} onChange={(e) => setEditingJob({...editingJob, location: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-600 outline-none" />
+                    <input type="text" value={editingJob?.location || ''} onChange={(e) => setEditingJob({...editingJob, location: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">Vacancies</label>
-                    <input type="number" required min="1" value={editingJob?.vacancies} onChange={(e) => setEditingJob({...editingJob, vacancies: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-600 outline-none" />
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4 border-t border-slate-100 pt-6">
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Min Salary (₱)</label>
-                    <input type="number" value={editingJob?.salary_min} onChange={(e) => setEditingJob({...editingJob, salary_min: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-600 outline-none" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Max Salary (₱)</label>
-                    <input type="number" value={editingJob?.salary_max} onChange={(e) => setEditingJob({...editingJob, salary_max: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-600 outline-none" />
+                    <input type="number" value={editingJob?.vacancies || ''} onChange={(e) => setEditingJob({...editingJob, vacancies: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
                   </div>
                 </div>
               </form>
             </div>
 
             <div className="p-6 border-t border-slate-200 bg-white flex justify-between items-center gap-4">
-              <button onClick={() => handleDeleteJob(editingJob.job_id)} className="p-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors">
+              <button onClick={() => handleDeleteJob(editingJob.job_id)} type="button" className="p-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors">
                 <Trash2 size={20} />
               </button>
               <div className="flex gap-3">
-                <button onClick={closeEditPanel} className="px-5 py-3 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
+                <button type="button" onClick={closeEditPanel} className="px-5 py-3 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
                 <button form="editJobForm" type="submit" className="px-6 py-3 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 shadow-md transition-colors">Save Changes</button>
               </div>
             </div>
@@ -334,7 +320,7 @@ const SidebarLink = ({ icon, label, badge, active, to = "#" }) => (
       {icon}
       <span>{label}</span>
     </div>
-    {badge !== undefined && badge > 0 && <span className="bg-indigo-500 text-white text-xs px-2.5 py-0.5 rounded-full">{badge}</span>}
+    {badge && <span className="bg-indigo-500 text-white text-xs px-2.5 py-0.5 rounded-full">{badge}</span>}
   </Link>
 );
 
