@@ -143,6 +143,7 @@ const Messages = () => {
           <SidebarLink icon={<Briefcase size={20}/>} label="My Applications" to="/applications" />
           <SidebarLink icon={<Bookmark size={20}/>} label="Saved Jobs" to="/saved" />
           <SidebarLink icon={<MessageSquare size={20}/>} label="Messages" active to="/messages" />
+          <SidebarLink icon={<FileText size={20}/>} label="My Resume" to="/resume" />
         </nav>
         
         {/* --- RESTORE THIS MISSING BLOCK --- */}
