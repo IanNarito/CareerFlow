@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Search, MapPin, Briefcase, DollarSign, 
@@ -44,8 +44,12 @@ const JobList = () => {
   const [activeCategories, setActiveCategories] = useState([]);
   const [activeRegions, setActiveRegions] = useState([]);
   
-  // NEW: Mobile filter toggle state
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  
+  // UX Improvements: Pagination, Toast, and Scroll Ref
+  const [visibleCount, setVisibleCount] = useState(10);
+  const [toastMessage, setToastMessage] = useState("");
+  const resultsRef = useRef(null);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
@@ -82,6 +86,19 @@ const JobList = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const showToast = (message) => {
+    setToastMessage(message);
+    setTimeout(() => setToastMessage(""), 3000);
+  };
+
+  const scrollToResults = () => {
+    if (resultsRef.current) {
+      // Reset pagination when searching
+      setVisibleCount(10);
+      resultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   const handleToggleSave = (jobId) => {
     if (!user) {
       navigate('/login');
@@ -97,6 +114,7 @@ const JobList = () => {
       const updated = localSaved.filter(j => j.job_id !== jobId);
       localStorage.setItem(savedKey, JSON.stringify(updated));
       setSavedJobIds(prev => prev.filter(id => id !== jobId));
+      showToast("Job removed from saved list");
     } else {
       const jobToSave = jobs.find(j => j.job_id === jobId);
       if (jobToSave) {
@@ -107,13 +125,14 @@ const JobList = () => {
         const updated = [...localSaved, newSave];
         localStorage.setItem(savedKey, JSON.stringify(updated));
         setSavedJobIds(prev => [...prev, jobId]);
+        showToast("Job saved to your dashboard!");
       }
     }
   };
 
   const toggleCategory = (id) => setActiveCategories(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]);
   const toggleRegion = (id) => setActiveRegions(prev => prev.includes(id) ? prev.filter(r => r !== id) : [...prev, id]);
-  const clearFilters = () => { setSearchQuery(""); setLocationQuery(""); setActiveCategories([]); setActiveRegions([]); };
+  const clearFilters = () => { setSearchQuery(""); setLocationQuery(""); setActiveCategories([]); setActiveRegions([]); setVisibleCount(10); };
 
   const filteredJobs = jobs.filter(job => {
     const titleCompany = `${job.title} ${job.company_name} ${job.description}`.toLowerCase();
@@ -138,8 +157,16 @@ const JobList = () => {
   });
 
   return (
-    <div className="min-h-screen w-full bg-slate-50 font-sans text-slate-900">
+    <div className="min-h-screen w-full bg-slate-50 font-sans text-slate-900 relative">
       
+      {/* UX: TOAST NOTIFICATION */}
+      <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 ${toastMessage ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}>
+        <div className="bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl font-bold text-sm flex items-center gap-2">
+          <CheckCircle2 size={18} className="text-green-400" />
+          {toastMessage}
+        </div>
+      </div>
+
       {/* NAVBAR */}
       <nav className={`fixed top-0 left-0 w-full z-40 transition-all duration-200 border-b ${scrolled ? 'bg-white shadow-sm border-slate-200 py-3' : 'bg-slate-900 border-slate-800 py-4'}`}>
         <div className="max-w-[1400px] w-full mx-auto px-4 sm:px-6 flex items-center justify-between">
@@ -152,7 +179,7 @@ const JobList = () => {
             </Link>
             <div className={`hidden lg:flex gap-8 text-sm font-semibold ${scrolled ? 'text-slate-600' : 'text-slate-300'}`}>
               <Link to="/jobs" className={`${scrolled ? 'text-blue-600' : 'text-white'} flex items-center gap-2`}>Job Listings</Link>
-              {user && <Link to="/dashboard" className="hover:text-blue-500 transition-colors">My Applications</Link>}
+              {user && <Link to={user.role === 'hr' ? '/hr-dashboard' : '/dashboard'} className="hover:text-blue-500 transition-colors">Dashboard</Link>}
             </div>
           </div>
           <div className="flex gap-3 sm:gap-4 items-center">
@@ -167,34 +194,50 @@ const JobList = () => {
         </div>
       </nav>
 
-      {/* HERO SECTION - Adjusted padding for mobile */}
+      {/* HERO SECTION */}
       <section className="relative w-full pt-28 pb-20 md:pt-32 md:pb-40 bg-slate-900 flex flex-col items-center border-b border-slate-800">
         <div className="max-w-[1400px] w-full px-4 sm:px-6 relative z-10 text-center lg:text-left mt-2 md:mt-4">
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white mb-3 md:mb-4 tracking-tight">Find the right job using your voice.</h2>
           <p className="text-base sm:text-lg text-slate-400 max-w-2xl mx-auto lg:mx-0 px-2">Discover verified blue-collar opportunities across the Philippines.</p>
         </div>
 
-        {/* SEARCH BAR - Stacked cleanly on mobile */}
+        {/* SEARCH BAR */}
         <div className="absolute -bottom-24 md:-bottom-12 left-0 right-0 w-full px-4 sm:px-6 z-20">
           <div className="max-w-[1200px] w-full mx-auto bg-white p-2 md:p-3 rounded-2xl md:rounded-3xl shadow-xl shadow-blue-900/10 flex flex-col md:flex-row gap-2 md:gap-3 border border-slate-200">
             <div className="flex-1 flex items-center bg-slate-50 rounded-xl px-4 py-3 md:px-5 md:py-4 border-2 border-transparent focus-within:border-blue-400 focus-within:bg-white transition-all">
               <Search size={20} className="text-blue-600 mr-3 flex-shrink-0" />
-              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="E.g. Driver, Mason..." className="w-full bg-transparent border-none focus:outline-none text-slate-900 text-base md:text-lg placeholder-slate-400 font-semibold" />
+              <input 
+                type="text" 
+                value={searchQuery} 
+                onChange={(e) => { setSearchQuery(e.target.value); setVisibleCount(10); }} 
+                placeholder="E.g. Driver, Mason..." 
+                className="w-full bg-transparent border-none focus:outline-none text-slate-900 text-base md:text-lg placeholder-slate-400 font-semibold" 
+              />
             </div>
             <div className="w-full md:w-[30%] flex items-center bg-slate-50 rounded-xl px-4 py-3 md:px-5 md:py-4 border-2 border-transparent focus-within:border-blue-400 focus-within:bg-white transition-all">
               <MapPin size={20} className="text-blue-600 mr-3 flex-shrink-0" />
-              <input type="text" value={locationQuery} onChange={(e) => setLocationQuery(e.target.value)} placeholder="City or Province" className="w-full bg-transparent border-none focus:outline-none text-slate-900 text-base md:text-lg placeholder-slate-400 font-semibold" />
+              <input 
+                type="text" 
+                value={locationQuery} 
+                onChange={(e) => { setLocationQuery(e.target.value); setVisibleCount(10); }} 
+                placeholder="City or Province" 
+                className="w-full bg-transparent border-none focus:outline-none text-slate-900 text-base md:text-lg placeholder-slate-400 font-semibold" 
+              />
             </div>
             <div className="flex gap-2 w-full md:w-auto">
-              <button className="flex-1 md:flex-none flex items-center justify-center bg-blue-600 text-white font-bold px-6 py-3.5 md:py-4 rounded-xl hover:bg-blue-700 transition-colors shadow-md text-sm md:text-base">Search</button>
-              <button className="flex items-center justify-center bg-slate-900 text-white font-bold px-4 md:px-6 py-3.5 md:py-4 rounded-xl hover:bg-slate-800 transition-colors shadow-md flex-shrink-0"><Mic size={22} className="text-blue-400" /></button>
+              <button onClick={scrollToResults} className="flex-1 md:flex-none flex items-center justify-center bg-blue-600 text-white font-bold px-6 py-3.5 md:py-4 rounded-xl hover:bg-blue-700 transition-colors shadow-md text-sm md:text-base">
+                Search
+              </button>
+              <button onClick={() => navigate(user ? '/voice-builder' : '/login')} className="flex items-center justify-center bg-slate-900 text-white font-bold px-4 md:px-6 py-3.5 md:py-4 rounded-xl hover:bg-slate-800 transition-colors shadow-md flex-shrink-0" title="Voice Search">
+                <Mic size={22} className="text-blue-400" />
+              </button>
             </div>
           </div>
         </div>
       </section>
 
-      {/* MAIN CONTENT - Increased top padding for mobile to clear the stacked search bar */}
-      <main className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 pt-32 md:pt-24 pb-16">
+      {/* MAIN CONTENT */}
+      <main ref={resultsRef} className="scroll-mt-32 w-full max-w-[1400px] mx-auto px-4 sm:px-6 pt-32 md:pt-24 pb-16">
         
         {/* MOBILE FILTERS TOGGLE */}
         <div className="flex lg:hidden justify-between items-center w-full mb-6 mt-2">
@@ -206,33 +249,28 @@ const JobList = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full">
           
-          {/* MOBILE SLIDE-UP FILTER DRAWER & DESKTOP SIDEBAR */}
+          {/* SIDEBAR FILTERS */}
           <aside className={`fixed inset-0 z-50 lg:static lg:z-auto lg:col-span-3 w-full lg:block ${showMobileFilters ? 'block' : 'hidden'}`}>
-            {/* Mobile Overlay Backdrop */}
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm lg:hidden transition-opacity" onClick={() => setShowMobileFilters(false)}></div>
             
-            {/* Filter Content Box */}
             <div className="absolute bottom-0 left-0 w-full max-h-[85vh] bg-white rounded-t-3xl shadow-2xl lg:static lg:bg-white lg:border lg:border-slate-200 lg:rounded-2xl lg:shadow-sm flex flex-col transition-transform transform translate-y-0 lg:sticky lg:top-28">
               
-              {/* Mobile Header inside Drawer */}
               <div className="flex lg:hidden items-center justify-between p-5 border-b border-slate-100">
                 <h3 className="font-extrabold text-lg text-slate-900 flex items-center gap-2"><Filter size={18} className="text-blue-600"/> Filters</h3>
                 <button onClick={() => setShowMobileFilters(false)} className="p-2 bg-slate-100 text-slate-500 rounded-full hover:text-slate-900"><X size={20}/></button>
               </div>
 
-              {/* Desktop Header */}
               <div className="hidden lg:flex items-center justify-between p-6 pb-4 border-b border-slate-100">
                 <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2"><Filter size={18} className="text-slate-500"/> Filters</h3>
                 <button onClick={clearFilters} className="text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors">Clear All</button>
               </div>
 
-              {/* Filter Scroll Area */}
               <div className="p-5 lg:p-6 overflow-y-auto custom-scrollbar flex-1">
                 <div className="mb-8">
                   <h4 className="text-sm font-bold text-slate-900 mb-4 uppercase tracking-wider">Job Category</h4>
                   <div className="space-y-2.5">
                     {JOB_CATEGORIES.map(cat => (
-                      <FilterToggle key={cat.id} icon={cat.icon} label={cat.label} checked={activeCategories.includes(cat.id)} onChange={() => toggleCategory(cat.id)} />
+                      <FilterToggle key={cat.id} icon={cat.icon} label={cat.label} checked={activeCategories.includes(cat.id)} onChange={() => { toggleCategory(cat.id); setVisibleCount(10); }} />
                     ))}
                   </div>
                 </div>
@@ -241,13 +279,12 @@ const JobList = () => {
                   <h4 className="text-sm font-bold text-slate-900 mb-4 uppercase tracking-wider">Region</h4>
                   <div className="space-y-2.5 pb-20 lg:pb-0">
                     {REGIONS.map(reg => (
-                      <FilterToggle key={reg.id} label={reg.label} checked={activeRegions.includes(reg.id)} onChange={() => toggleRegion(reg.id)} />
+                      <FilterToggle key={reg.id} label={reg.label} checked={activeRegions.includes(reg.id)} onChange={() => { toggleRegion(reg.id); setVisibleCount(10); }} />
                     ))}
                   </div>
                 </div>
               </div>
               
-              {/* Mobile Apply Button inside Drawer */}
               <div className="p-4 border-t border-slate-100 bg-white lg:hidden">
                  <button onClick={() => setShowMobileFilters(false)} className="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl shadow-md">
                    Show Results ({filteredJobs.length})
@@ -278,14 +315,28 @@ const JobList = () => {
                   <button onClick={clearFilters} className="text-blue-600 font-bold hover:underline">Clear all filters</button>
                 </div>
               ) : (
-                filteredJobs.map((job) => (
-                  <JobCard 
-                    key={job.job_id} 
-                    job={job} 
-                    isSaved={savedJobIds.includes(job.job_id)} 
-                    onToggleSave={handleToggleSave} 
-                  />
-                ))
+                <>
+                  {filteredJobs.slice(0, visibleCount).map((job) => (
+                    <JobCard 
+                      key={job.job_id} 
+                      job={job} 
+                      isSaved={savedJobIds.includes(job.job_id)} 
+                      onToggleSave={handleToggleSave} 
+                    />
+                  ))}
+                  
+                  {/* UX: Load More Pagination */}
+                  {visibleCount < filteredJobs.length && (
+                    <div className="pt-4 pb-8 flex justify-center">
+                      <button 
+                        onClick={() => setVisibleCount(prev => prev + 10)} 
+                        className="px-8 py-3 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-colors"
+                      >
+                        Load More Jobs
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -322,12 +373,23 @@ const FilterToggle = ({ icon, label, checked, onChange }) => (
 
 const JobCard = ({ job, isSaved, onToggleSave }) => {
   const navigate = useNavigate();
-  // --- ADDED IMAGE FALLBACK STATE ---
   const [imgError, setImgError] = useState(false);
+
+  // UX: Clean Salary Formatting
+  const formatSalary = (min, max) => {
+    if (!min && !max) return "Salary Undisclosed";
+    const formatter = new Intl.NumberFormat('en-PH', { 
+      style: 'currency', 
+      currency: 'PHP',
+      maximumFractionDigits: 0 
+    });
+    if (min && !max) return `${formatter.format(min)}+`;
+    if (!min && max) return `Up to ${formatter.format(max)}`;
+    return `${formatter.format(min)} - ${formatter.format(max)}`;
+  };
 
   return (
     <div className="relative group mx-2 sm:mx-0">
-      {/* MOBILE-OPTIMIZED BOOKMARK BUTTON (Larger touch target) */}
       <div className="absolute top-4 right-4 z-20">
         <button 
           onClick={(e) => {
@@ -336,8 +398,8 @@ const JobCard = ({ job, isSaved, onToggleSave }) => {
           }}
           className={`p-3 sm:p-2.5 rounded-lg transition-all border shadow-sm bg-white/90 backdrop-blur-sm sm:bg-white ${
             isSaved 
-              ? 'text-blue-600 border-blue-200' 
-              : 'text-slate-400 border-slate-200 hover:text-blue-600 hover:border-blue-400'
+              ? 'text-blue-600 border-blue-200 bg-blue-50' 
+              : 'text-slate-400 border-slate-200 hover:text-blue-600 hover:border-blue-400 hover:bg-blue-50'
           }`}
           title={isSaved ? "Remove from saved" : "Save job"}
         >
@@ -349,8 +411,6 @@ const JobCard = ({ job, isSaved, onToggleSave }) => {
         onClick={() => navigate(`/jobs/${job.job_id}`)}
         className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 hover:border-blue-400 hover:shadow-lg transition-all flex flex-col sm:flex-row gap-4 sm:gap-5 relative cursor-pointer"
       >
-        
-        {/* --- DYNAMIC JOB IMAGE OR FALLBACK --- */}
         <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 shrink-0 group-hover:scale-105 transition-transform overflow-hidden relative shadow-sm">
           {!imgError && job.image_url ? (
             <img 
@@ -378,11 +438,13 @@ const JobCard = ({ job, isSaved, onToggleSave }) => {
 
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-3 sm:mt-4 text-xs sm:text-sm font-medium text-slate-600">
             <div className="flex items-center gap-1 font-bold"><MapPin size={14} className="text-slate-400"/> {job.location}</div>
-            <div className="flex items-center gap-1 font-bold text-green-700"><DollarSign size={14} className="text-green-500"/> ₱{job.salary_min} - ₱{job.salary_max}</div>
+            <div className="flex items-center gap-1 font-bold text-green-700">
+              <DollarSign size={14} className="text-green-500"/> 
+              {formatSalary(job.salary_min, job.salary_max)}
+            </div>
             <div className="flex items-center gap-1 font-bold hidden sm:flex"><Briefcase size={14} className="text-slate-400"/> {job.employment_type || "Full-time"}</div>
           </div>
 
-          {/* MOBILE-OPTIMIZED FOOTER (Buttons span full width) */}
           <div className="mt-4 sm:mt-5 pt-4 border-t border-slate-100 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded w-max">
               Posted {job.posted_at ? new Date(job.posted_at).toLocaleDateString() : "Recently"}
