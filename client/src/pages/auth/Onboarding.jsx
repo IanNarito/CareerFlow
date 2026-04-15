@@ -48,6 +48,33 @@ const Onboarding = () => {
   };
 
   useEffect(() => {
+    // --- AUTO-FILL LOGIC ---
+    // Grabs the newly registered user data to skip typing
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      const parsedUser = JSON.parse(savedUser);
+      
+      // Safely split "Juan Dela Cruz" into "Juan" and "Dela Cruz"
+      const nameParts = (parsedUser.username || '').split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+      const email = parsedUser.email || '';
+
+      setSeekerData(prev => ({
+        ...prev,
+        firstName: firstName,
+        lastName: lastName,
+        email: email
+      }));
+
+      setHrData(prev => ({
+        ...prev,
+        firstName: firstName,
+        lastName: lastName,
+        corporateEmail: email
+      }));
+    }
+
     const handleScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
@@ -146,7 +173,7 @@ const Onboarding = () => {
 
       if (response.ok) {
         alert("Phone Verified Successfully!");
-        setStep(prev => prev + 1); // Automatically moves to Step 4 for both roles
+        setStep(prev => prev + 1); 
       } else {
         alert("Invalid code. Please try again.");
         setOtp(['', '', '', '', '', '']); 
@@ -218,7 +245,6 @@ const Onboarding = () => {
       setTimeout(() => {
         setIsAnalyzing(false);
         setFaceVerified(true);
-        // Seeker goes to step 6 (Resume), HR skips directly to step 8 (Finish)
         setTimeout(() => setStep(role === 'hr' ? 8 : 6), 2000);
       }, 4000);
     } catch (error) {

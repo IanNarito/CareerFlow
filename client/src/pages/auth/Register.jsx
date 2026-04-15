@@ -45,15 +45,34 @@ const Register = () => {
       const data = await response.json();
 
       if (response.ok) {
-        alert("Registration successful!");
-        navigate('/login'); 
+        // --- AUTO-LOGIN FEATURE ---
+        // Instead of sending them to login, we log them in instantly behind the scenes
+        const loginRes = await fetch(`${API_BASE_URL}/api/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password
+          })
+        });
+
+        if (loginRes.ok) {
+          const userData = await loginRes.json();
+          localStorage.setItem('user', JSON.stringify(userData));
+          // Route directly to Onboarding!
+          navigate('/onboarding'); 
+        } else {
+          // Fallback just in case auto-login fails
+          alert("Registration successful! Please log in.");
+          navigate('/login'); 
+        }
       } else {
         alert(data.error || "Registration failed");
+        setLoading(false);
       }
     } catch (error) {
       console.error('Error:', error);
       alert("Could not connect to the server. Ensure your Node.js backend is running.");
-    } finally {
       setLoading(false);
     }
   };
