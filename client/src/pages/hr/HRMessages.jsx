@@ -160,7 +160,7 @@ const HRMessages = () => {
                </div>
             ) : (
               conversations.map((chat) => {
-                const displayName = chat.first_name ? `${chat.first_name} ${chat.last_name || ''}` : chat.name;
+                const displayName = chat.first_name ? `${chat.first_name} ${chat.last_name || ''}` : (chat.name || "Applicant");
                 return (
                   <button 
                     key={`inbox-${chat.id}`} 
@@ -177,7 +177,8 @@ const HRMessages = () => {
                          <span className="text-[10px] text-slate-400 font-bold shrink-0">{chat.time ? new Date(chat.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}</span>
                       </div>
                       <p className="text-[10px] text-indigo-500 uppercase font-bold tracking-wider mb-1">Applicant</p>
-                      <p className="text-xs text-slate-500 truncate font-medium">{chat.lastMessage}</p>
+                      {/* CRASH FIX: Safe fallback for lastMessage */}
+                      <p className="text-xs text-slate-500 truncate font-medium">{chat.lastMessage || "Say hello!"}</p>
                     </div>
                   </button>
                 )
@@ -201,22 +202,21 @@ const HRMessages = () => {
                   </div>
                   <div>
                     <h3 className="text-slate-900 leading-tight text-base sm:text-lg font-extrabold truncate">
-                      {activeChatData.first_name ? `${activeChatData.first_name} ${activeChatData.last_name || ''}` : activeChatData.name}
+                      {activeChatData.first_name ? `${activeChatData.first_name} ${activeChatData.last_name || ''}` : (activeChatData.name || "Applicant")}
                     </h3>
                     <p className="text-[10px] sm:text-[11px] text-indigo-600 font-bold uppercase tracking-wider mt-0.5">Active Candidate</p>
                   </div>
                 </div>
-                {/* Quick Action Button for HR */}
-                <button className="hidden sm:flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-sm font-bold transition-colors">
-                  <FileText size={16}/> View Resume
-                </button>
               </header>
 
               {/* CHAT MESSAGES AREA */}
               <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col gap-5 custom-scrollbar min-h-0 bg-[#f8fafc]">
                 {messages.map((msg, idx) => {
                   const isMe = String(msg.sender_id) === String(hrId);
-                  const hasAttachment = msg.message_text.includes('[Attached File:');
+                  
+                  // CRASH FIX: Safe string fallback to prevent .includes() from crashing on null
+                  const safeText = msg.message_text || "";
+                  const hasAttachment = safeText.includes('[Attached File:');
                   
                   return (
                     <div key={msg.message_id || `msg-${idx}`} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
@@ -231,11 +231,13 @@ const HRMessages = () => {
                           )}
 
                           <p className="text-[15px] font-medium leading-relaxed whitespace-pre-wrap break-words">
-                            {msg.message_text.replace(/\[Attached File:.*?\]/g, '').trim()}
+                            {/* CRASH FIX: Using safeText instead of msg.message_text directly */}
+                            {safeText.replace(/\[Attached File:.*?\]/g, '').trim()}
                           </p>
                         </div>
+                        
                         <p className="text-[10px] mt-1.5 font-bold text-slate-400 mx-1">
-                          {new Date(msg.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                          {msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : ''}
                         </p>
                       </div>
                     </div>
