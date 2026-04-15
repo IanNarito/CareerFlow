@@ -1153,29 +1153,41 @@ const handleSendMessage = async (e) => {
 
 // --- 1. GET INBOX ---
 // Gets a list of unique people the user (HR or Seeker) has chatted with
-app.get('/api/messages/inbox/:userId', (req, res) => {
-  const { userId } = req.params;
-  const sql = `
-    SELECT 
-      u.id AS user_id, 
-      u.username AS name, 
-      u.first_name, 
-      u.last_name,
-      m.message_text AS lastMessage, 
-      m.created_at AS time
-    FROM messages m
-    JOIN users u ON (u.id = m.sender_id OR u.id = m.receiver_id)
-    WHERE (m.sender_id = ? OR m.receiver_id = ?) 
-      AND u.id != ?
-    GROUP BY u.id
-    ORDER BY m.created_at DESC
-  `;
-
-  db.query(sql, [userId, userId, userId], (err, results) => {
-    if (err) return res.status(500).json(err);
-    console.log(`>>> DB found ${results.length} conversations for HR ID ${userId}`);
-    res.json(results);
-  });
+app.get('/api/messages/inbox/:userId', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const query = `
+            SELECT 
+                u.user_id as id, 
+                u.username as name, 
+                u.role,
+                p.company_name, 
+                p.first_name, 
+                p.last_name,
+                m.message_text as lastMessage, 
+                m.created_at as time
+            FROM users u
+            JOIN (
+                SELECT 
+                    IF(sender_id = ?, receiver_id, sender_id) as contact_id,
+                    MAX(created_at) as max_time
+                FROM messages
+                WHERE sender_id = ? OR receiver_id = ?
+                GROUP BY contact_id
+            ) latest_msg ON u.user_id = latest_msg.contact_id
+            JOIN messages m ON (
+                (m.sender_id = ? AND m.receiver_id = u.user_id) OR 
+                (m.sender_id = u.user_id AND m.receiver_id = ?)
+            ) AND m.created_at = latest_msg.max_time
+            LEFT JOIN profiles p ON u.user_id = p.user_id
+            ORDER BY m.created_at DESC
+        `;
+        const [rows] = await db.execute(query, [userId, userId, userId, userId, userId]);
+        res.json(rows);
+    } catch (err) {
+        console.error("Inbox Fetch Error:", err);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // --- 2. GET HISTORY ---
