@@ -10,7 +10,7 @@ import {
 
 const Onboarding = () => {
   const navigate = useNavigate();
-  // STEP LOGIC UPDATE: We skip Step 1 because Role Selection is now in Register.jsx
+  // We start at Step 2 because Step 1 (Role Selection) is now handled in Register.jsx
   const [step, setStep] = useState(2);
   const [role, setRole] = useState(null); 
   const [scrolled, setScrolled] = useState(false);
@@ -19,7 +19,7 @@ const Onboarding = () => {
     firstName: '', lastName: '', email: '', phone: '',
     dob: '', gender: '', address: '', education: '',
     preferredJobs: [], newJobInput: '', idFile: null,
-    resumeFile: null, // <-- ADDED RESUME FILE STATE
+    resumeFile: null, 
     profilePicUrl: null 
   });
   
@@ -54,7 +54,8 @@ const Onboarding = () => {
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
       const parsedUser = JSON.parse(savedUser);
-      setRole(parsedUser.role || 'job_seeker'); // Automatically set the role they picked during registration
+      // THE FIX: Set the exact database role ('job_seeker' or 'hr')
+      setRole(parsedUser.role || 'job_seeker'); 
       
       const nameParts = (parsedUser.username || '').split(' ');
       const firstName = nameParts[0] || '';
@@ -79,7 +80,7 @@ const Onboarding = () => {
 
   const handleStep2Submit = (e) => {
     e.preventDefault();
-    const dobToUse = role === 'seeker' ? seekerData.dob : hrData.dob;
+    const dobToUse = role === 'job_seeker' ? seekerData.dob : hrData.dob;
     const birthDate = new Date(dobToUse);
     const ageInMilliseconds = new Date() - birthDate;
     const ageInYears = ageInMilliseconds / (1000 * 60 * 60 * 24 * 365.25);
@@ -99,7 +100,7 @@ const Onboarding = () => {
       return;
     }
 
-    const profilePayload = role === 'seeker' ? seekerData : hrData;
+    const profilePayload = role === 'job_seeker' ? seekerData : hrData;
     const API_BASE_URL = getApiUrl();
 
     try {
@@ -108,7 +109,7 @@ const Onboarding = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: savedUser?.id || savedUser?.user_id, 
-          role: role,
+          role: role, // Saves 'job_seeker' or 'hr' to db
           profileData: profilePayload
         }),
       });
@@ -149,7 +150,7 @@ const Onboarding = () => {
 
   const verifyOtpRequest = async (code) => {
     const savedUser = JSON.parse(localStorage.getItem('user'));
-    const phoneNumber = role === 'seeker' ? seekerData.phone : hrData.phone;
+    const phoneNumber = role === 'job_seeker' ? seekerData.phone : hrData.phone;
     const API_BASE_URL = getApiUrl();
     
     try {
@@ -178,7 +179,7 @@ const Onboarding = () => {
 
   const sendOtpRequest = async () => {
     const savedUser = JSON.parse(localStorage.getItem('user'));
-    const phoneNumber = role === 'seeker' ? seekerData.phone : hrData.phone;
+    const phoneNumber = role === 'job_seeker' ? seekerData.phone : hrData.phone;
     const API_BASE_URL = getApiUrl();
     
     if (!phoneNumber) { alert("Please enter a phone number first."); return; }
@@ -236,7 +237,6 @@ const Onboarding = () => {
       setTimeout(() => {
         setIsAnalyzing(false);
         setFaceVerified(true);
-        // FIX 6: Clean state logic. Max step is 7 now.
         setTimeout(() => setStep(role === 'hr' ? 7 : 6), 2000);
       }, 4000);
     } catch (error) {
@@ -326,24 +326,22 @@ const Onboarding = () => {
       <div className="w-full max-w-[1400px] px-4 sm:px-8 pt-28 pb-12 flex-1 flex justify-center items-stretch">
         <div className="w-full bg-white rounded-3xl shadow-xl flex overflow-hidden border border-slate-200">
           
-          {/* SIDEBARS */}
-          {role === 'seeker' && step < 7 && <SeekerSidebar />}
+          {/* SIDEBARS: Using 'job_seeker' instead of 'seeker' */}
+          {role === 'job_seeker' && step < 7 && <SeekerSidebar />}
           {role === 'hr' && step < 7 && <HrSidebar />}
 
           <main className={`flex-1 flex flex-col ${step < 7 ? 'lg:w-2/3' : 'w-full'} p-8 sm:p-14 relative overflow-y-auto`}>
             
             {/* --- SHARED STEP 2: PERSONAL INFO --- */}
-            {step === 2 && role === 'seeker' && (
+            {step === 2 && role === 'job_seeker' && (
               <div className="animate-in fade-in slide-in-from-right-8 duration-500 m-auto w-full max-w-3xl">
                 <h2 className="text-4xl font-extrabold text-slate-900 mb-2">Personal Information</h2>
                 <form onSubmit={handleStep2Submit} className="space-y-6 mt-8">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* VISUAL HIERARCHY FIX: Gray out auto-filled details */}
                     <div><label className="block text-sm font-bold text-slate-700 mb-2">First Name</label><input type="text" readOnly value={seekerData.firstName} className="w-full px-5 py-4 bg-slate-100 text-slate-500 border border-slate-200 rounded-xl cursor-not-allowed" /></div>
                     <div><label className="block text-sm font-bold text-slate-700 mb-2">Last Name</label><input type="text" readOnly value={seekerData.lastName} className="w-full px-5 py-4 bg-slate-100 text-slate-500 border border-slate-200 rounded-xl cursor-not-allowed" /></div>
                     <div><label className="block text-sm font-bold text-slate-700 mb-2">Email Address</label><input type="email" readOnly value={seekerData.email} className="w-full px-5 py-4 bg-slate-100 text-slate-500 border border-slate-200 rounded-xl cursor-not-allowed" /></div>
                     
-                    {/* VISUAL HIERARCHY FIX: Highlight empty required fields */}
                     <div><label className="block text-sm font-bold text-slate-700 mb-2">Birthdate <span className="text-red-500">*</span></label><input type="date" required max={maxDateString} value={seekerData.dob} onChange={(e) => setSeekerData({...seekerData, dob: e.target.value})} className="w-full px-5 py-4 bg-white border-2 border-blue-100 focus:border-blue-600 rounded-xl transition-colors shadow-sm" /></div>
                     <div className="md:col-span-2"><label className="block text-sm font-bold text-slate-700 mb-2">Home Address <span className="text-red-500">*</span></label><input type="text" required placeholder="Complete home address" value={seekerData.address} onChange={(e) => setSeekerData({...seekerData, address: e.target.value})} className="w-full px-5 py-4 bg-white border-2 border-blue-100 focus:border-blue-600 rounded-xl transition-colors shadow-sm" /></div>
                     <div className="md:col-span-2"><label className="block text-sm font-bold text-slate-700 mb-2">Personal Phone <span className="text-red-500">*</span></label><input type="tel" required value={seekerData.phone} onChange={(e) => setSeekerData({...seekerData, phone: e.target.value})} className="w-full px-5 py-4 bg-white border-2 border-blue-100 focus:border-blue-600 rounded-xl transition-colors shadow-sm" placeholder="09XX XXX XXXX" /></div>
@@ -375,12 +373,11 @@ const Onboarding = () => {
                 <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mb-8 mx-auto"><Smartphone size={40} /></div>
                 <h2 className="text-4xl font-extrabold text-slate-900 mb-3 text-center">Verify Phone</h2>
                 
-                {/* UX REDUNDANCY FIX: Replaced input box with clean read-only text and edit link */}
                 {!otpSent ? (
                   <div className="space-y-6 mt-8 text-center">
                     <p className="text-lg text-slate-700 font-medium">We will send a 6-digit verification code to:</p>
                     <p className="text-3xl font-extrabold tracking-widest text-slate-900 mb-2">
-                      {role === 'seeker' ? seekerData.phone : hrData.phone}
+                      {role === 'job_seeker' ? seekerData.phone : hrData.phone}
                     </p>
                     <button onClick={() => setStep(2)} className="text-blue-600 font-bold text-sm hover:underline">
                       Wrong number? Edit here.
@@ -448,7 +445,7 @@ const Onboarding = () => {
             )}
 
             {/* --- SEEKER SPECIFIC STEPS --- */}
-            {step === 4 && role === 'seeker' && (
+            {step === 4 && role === 'job_seeker' && (
               <div className="animate-in fade-in slide-in-from-right-8 duration-500 m-auto w-full max-w-3xl">
                 <h2 className="text-4xl font-extrabold text-slate-900 mb-2">Qualifications</h2>
                 <form onSubmit={handleNext} className="space-y-8 mt-8">
@@ -477,7 +474,7 @@ const Onboarding = () => {
             )}
 
             {/* --- SHARED STEP: FACE VERIFICATION (Seeker 5, HR 6) --- */}
-            {((step === 5 && role === 'seeker') || (step === 6 && role === 'hr')) && (
+            {((step === 5 && role === 'job_seeker') || (step === 6 && role === 'hr')) && (
               <div className="animate-in fade-in slide-in-from-right-8 duration-500 m-auto w-full max-w-lg text-center">
                 <h2 className="text-4xl font-extrabold text-slate-900 mb-3">Face Verification</h2>
                 <p className="text-slate-500 mb-10 text-lg font-medium">To keep the platform secure and build your profile picture, please verify your face.</p>
@@ -486,7 +483,6 @@ const Onboarding = () => {
                   <div className="bg-slate-900 rounded-[2.5rem] p-10 shadow-2xl relative overflow-hidden">
                     <div className="w-40 h-40 mx-auto border-4 border-slate-700 border-dashed rounded-full flex items-center justify-center mb-8 text-slate-500"><ScanFace size={80} /></div>
                     <button onClick={startCamera} className="w-full py-5 bg-blue-600 text-white font-bold text-xl rounded-2xl hover:bg-blue-500 shadow-lg shadow-blue-600/30 flex items-center justify-center gap-3"><Camera size={24} /> Open Camera</button>
-                    {/* PSYCHOLOGICAL FRICTION FIX: Trust-building microcopy */}
                     <p className="text-xs text-slate-400 mt-5 flex items-start justify-center gap-1.5 text-left leading-relaxed">
                       <ShieldCheck size={14} className="shrink-0 mt-0.5 text-green-400"/> 
                       Your photo is securely encrypted and used only for identity verification. It will never be shared without your consent.
@@ -517,14 +513,13 @@ const Onboarding = () => {
             )}
 
             {/* --- SEEKER SPECIFIC STEP 6: RESUME --- */}
-            {step === 6 && role === 'seeker' && (
+            {step === 6 && role === 'job_seeker' && (
               <div className="animate-in fade-in slide-in-from-right-8 duration-500 m-auto w-full max-w-3xl">
                 <div className="text-center mb-8">
                   <h2 className="text-4xl font-extrabold text-slate-900 mb-3 tracking-tight">Setup your Resume</h2>
                   <p className="text-slate-500 text-lg">Upload an existing resume or skip for now. / <span className="italic">Mag-upload ng resume.</span></p>
                 </div>
                 
-                {/* GHOST RESUME FIX: Added actual file upload dropzone */}
                 <div className="bg-slate-50 border border-slate-200 rounded-3xl p-8 mb-8">
                   <h4 className="font-bold text-slate-900 mb-4 text-lg">Upload Resume (PDF, DOCX)</h4>
                   <div className={`border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center text-center transition-all relative cursor-pointer ${seekerData.resumeFile ? 'border-green-400 bg-green-50' : 'border-slate-300 bg-white hover:bg-blue-50'}`}>
