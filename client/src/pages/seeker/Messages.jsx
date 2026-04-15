@@ -144,6 +144,13 @@ const Messages = () => {
           <SidebarLink icon={<Bookmark size={20}/>} label="Saved Jobs" to="/saved" />
           <SidebarLink icon={<MessageSquare size={20}/>} label="Messages" active to="/messages" />
         </nav>
+        
+        {/* --- RESTORE THIS MISSING BLOCK --- */}
+        <div className="p-4 border-t border-slate-800 space-y-2">
+          <SidebarLink icon={<Mic size={20}/>} label="Voice Profile" to="/voice-builder" />
+          <SidebarLink icon={<Settings size={20}/>} label="Settings" to="/settings" />
+        </div>
+        {/* -------------------------------- */}
       </aside>
 
       <div className="flex-1 flex flex-col h-full overflow-hidden bg-white relative">
