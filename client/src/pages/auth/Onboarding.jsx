@@ -42,7 +42,6 @@ const Onboarding = () => {
   maxDate.setFullYear(maxDate.getFullYear() - 18);
   const maxDateString = maxDate.toISOString().split('T')[0];
 
-  // Helper function to safely get the URL in every fetch request
   const getApiUrl = () => {
     const rawUrl = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL || '';
     return rawUrl.replace(/\/$/, '');
@@ -219,7 +218,7 @@ const Onboarding = () => {
       setTimeout(() => {
         setIsAnalyzing(false);
         setFaceVerified(true);
-        setTimeout(() => setStep(6), 2000);
+        setTimeout(() => setStep(role === 'hr' ? 6 : 6), 2000);
       }, 4000);
     } catch (error) {
       console.error("Face Processing Error:", error);
@@ -281,7 +280,6 @@ const Onboarding = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col items-center">
-      
       <nav className={`fixed top-0 left-0 w-full z-50 transition-all duration-200 border-b ${scrolled ? 'bg-white shadow-sm border-slate-200 py-3' : 'bg-slate-900 border-slate-800 py-4'}`}>
         <div className="max-w-[1400px] w-full mx-auto px-6 flex items-center justify-between">
           <div className="flex items-center gap-10">
@@ -312,24 +310,81 @@ const Onboarding = () => {
           <main className={`flex-1 flex flex-col ${step > 1 ? 'lg:w-2/3' : 'w-full'} p-8 sm:p-14 relative overflow-y-auto`}>
             
             {step === 1 && (<div className="w-full max-w-4xl mx-auto m-auto animate-in fade-in duration-500"><div className="text-center mb-12"><div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white mx-auto mb-6 shadow-xl"><LayoutDashboard size={32} /></div><h2 className="text-5xl font-extrabold mb-4">Welcome to CareerFlow</h2><p className="text-slate-500 text-xl">How will you use the platform?</p></div><div className="grid grid-cols-1 md:grid-cols-2 gap-8"><button onClick={() => setRole('seeker')} className={`flex flex-col items-center text-center p-10 rounded-3xl border-2 transition-all ${role === 'seeker' ? 'border-blue-600 bg-blue-50/50 shadow-lg scale-[1.02]' : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'}`}><div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 ${role === 'seeker' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}><User size={40} /></div><h3 className="text-2xl font-bold text-slate-900 mb-2">I'm looking for a job</h3><p className="text-blue-600 font-bold text-base">Naghahanap ako ng trabaho</p></button><button onClick={() => setRole('hr')} className={`flex flex-col items-center text-center p-10 rounded-3xl border-2 transition-all ${role === 'hr' ? 'border-blue-600 bg-blue-50/50 shadow-lg scale-[1.02]' : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'}`}><div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 ${role === 'hr' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}><Building2 size={40} /></div><h3 className="text-2xl font-bold text-slate-900 mb-2">I'm hiring employees</h3><p className="text-blue-600 font-bold text-base">Naghahanap ako ng empleyado</p></button></div><div className="mt-12 flex justify-end"><button onClick={handleNext} disabled={!role} className="flex items-center gap-2 px-10 py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-blue-600 transition-colors disabled:opacity-50 text-lg">Continue <ArrowRight size={20} /></button></div></div>)}
+            
+            {/* --- HR SPECIFIC STEPS --- */}
+            {role === 'hr' && (
+              <>
+                {step === 2 && (
+                  <div className="animate-in fade-in slide-in-from-right-8 duration-500 m-auto w-full max-w-3xl">
+                    <h2 className="text-4xl font-extrabold text-slate-900 mb-2">HR Representative</h2>
+                    <p className="text-slate-500 mb-8 font-medium">Please provide your personal contact details to represent your company.</p>
+                    <form onSubmit={handleStep2Submit} className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div><label className="block text-sm font-bold text-slate-700 mb-2">First Name</label><input type="text" required value={hrData.firstName} onChange={(e) => setHrData({...hrData, firstName: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl" /></div>
+                        <div><label className="block text-sm font-bold text-slate-700 mb-2">Last Name</label><input type="text" required value={hrData.lastName} onChange={(e) => setHrData({...hrData, lastName: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl" /></div>
+                        <div><label className="block text-sm font-bold text-slate-700 mb-2">Birthdate</label><input type="date" required max={maxDateString} value={hrData.dob} onChange={(e) => setHrData({...hrData, dob: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl" /></div>
+                        <div><label className="block text-sm font-bold text-slate-700 mb-2">Personal Phone</label><input type="tel" required value={hrData.phone} onChange={(e) => setHrData({...hrData, phone: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl" placeholder="09XX XXX XXXX" /></div>
+                      </div>
+                      <div className="pt-8 mt-6 border-t border-slate-100 flex justify-end"><button type="submit" className="px-10 py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700">Next Step</button></div>
+                    </form>
+                  </div>
+                )}
+                {step === 3 && (
+                  <div className="animate-in fade-in slide-in-from-right-8 duration-500 m-auto w-full max-w-3xl">
+                    <h2 className="text-4xl font-extrabold text-slate-900 mb-2">Company Profile</h2>
+                    <p className="text-slate-500 mb-8 font-medium">Tell us about the organization you are hiring for.</p>
+                    <form onSubmit={handleNext} className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="md:col-span-2"><label className="block text-sm font-bold text-slate-700 mb-2">Registered Company Name</label><input type="text" required value={hrData.companyName} onChange={(e) => setHrData({...hrData, companyName: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl" /></div>
+                        <div><label className="block text-sm font-bold text-slate-700 mb-2">Industry</label><input type="text" required value={hrData.industry} onChange={(e) => setHrData({...hrData, industry: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl" placeholder="e.g. Technology, Retail" /></div>
+                        <div><label className="block text-sm font-bold text-slate-700 mb-2">Corporate Email</label><input type="email" required value={hrData.corporateEmail} onChange={(e) => setHrData({...hrData, corporateEmail: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl" /></div>
+                      </div>
+                      <div className="pt-8 mt-6 border-t border-slate-100 flex justify-end"><button type="submit" className="px-10 py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700">Next Step</button></div>
+                    </form>
+                  </div>
+                )}
+                {step === 4 && (
+                  <div className="animate-in fade-in slide-in-from-right-8 duration-500 m-auto w-full max-w-3xl">
+                    <h2 className="text-4xl font-extrabold text-slate-900 mb-6">Official Documents</h2>
+                    <div className="space-y-8">
+                      <div className="bg-slate-50 border border-slate-200 rounded-3xl p-8">
+                        <h4 className="font-bold text-slate-900 mb-4 text-lg">Upload Proof of Employment</h4>
+                        <div className={`border-2 border-dashed rounded-2xl p-6 flex flex-col items-center justify-center text-center transition-all cursor-pointer ${hrData.companyIdFile ? 'border-green-400 bg-green-50' : 'border-slate-300 bg-white hover:bg-blue-50'}`}>
+                          <input type="file" required onChange={(e) => setHrData({...hrData, companyIdFile: e.target.files[0]})} className="absolute opacity-0 cursor-pointer" />
+                          <UploadCloud size={32} className={hrData.companyIdFile ? "text-green-500 mb-2" : "text-slate-400 mb-2"} />
+                          <span className="font-bold text-sm">{hrData.companyIdFile ? hrData.companyIdFile.name : 'Company ID or Certificate'}</span>
+                        </div>
+                      </div>
+                      <div className="bg-slate-50 border border-slate-200 rounded-3xl p-8">
+                        <h4 className="font-bold text-slate-900 mb-4 text-lg">Business Permit / DTI / SEC</h4>
+                        <div className={`border-2 border-dashed rounded-2xl p-6 flex flex-col items-center justify-center text-center transition-all cursor-pointer ${hrData.permitFile ? 'border-green-400 bg-green-50' : 'border-slate-300 bg-white hover:bg-blue-50'}`}>
+                          <input type="file" required onChange={(e) => setHrData({...hrData, permitFile: e.target.files[0]})} className="absolute opacity-0 cursor-pointer" />
+                          <UploadCloud size={32} className={hrData.permitFile ? "text-green-500 mb-2" : "text-slate-400 mb-2"} />
+                          <span className="font-bold text-sm">{hrData.permitFile ? hrData.permitFile.name : 'Permit Document'}</span>
+                        </div>
+                      </div>
+                      <div className="pt-8 flex justify-end"><button onClick={handleNext} disabled={!hrData.companyIdFile || !hrData.permitFile} className="px-10 py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 disabled:opacity-50">Next Step</button></div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* --- SEEKER SPECIFIC STEPS --- */}
             {step === 2 && role === 'seeker' && (<div className="animate-in fade-in slide-in-from-right-8 duration-500 m-auto w-full max-w-3xl"><h2 className="text-4xl font-extrabold text-slate-900 mb-2">Personal Information</h2><form onSubmit={handleStep2Submit} className="space-y-6 mt-8"><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div><label className="block text-sm font-bold text-slate-700 mb-2">First Name</label><input type="text" required value={seekerData.firstName} onChange={(e) => setSeekerData({...seekerData, firstName: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl" /></div><div><label className="block text-sm font-bold text-slate-700 mb-2">Last Name</label><input type="text" required value={seekerData.lastName} onChange={(e) => setSeekerData({...seekerData, lastName: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl" /></div><div><label className="block text-sm font-bold text-slate-700 mb-2">Email Address</label><input type="email" required value={seekerData.email} onChange={(e) => setSeekerData({...seekerData, email: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl" /></div><div><label className="block text-sm font-bold text-slate-700 mb-2">Birthdate</label><input type="date" required max={maxDateString} value={seekerData.dob} onChange={(e) => setSeekerData({...seekerData, dob: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl" /></div><div className="md:col-span-2"><label className="block text-sm font-bold text-slate-700 mb-2">Home Address</label><input type="text" required value={seekerData.address} onChange={(e) => setSeekerData({...seekerData, address: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl" /></div></div><div className="pt-8 mt-6 border-t border-slate-100 flex justify-end"><button type="submit" className="px-10 py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700">Next Step</button></div></form></div>)}
             {step === 3 && role === 'seeker' && (<div className="animate-in fade-in slide-in-from-right-8 duration-500 m-auto w-full max-w-md"><div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mb-8 mx-auto"><Smartphone size={40} /></div><h2 className="text-4xl font-extrabold text-slate-900 mb-3 text-center">Verify Phone</h2>{!otpSent ? (<div className="space-y-6 mt-8"><div><label className="block text-sm font-bold text-slate-700 mb-2">Phone Number</label><input type="tel" value={seekerData.phone} onChange={(e) => setSeekerData({...seekerData, phone: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xl tracking-wide" placeholder="0912 345 6789" /></div><button onClick={sendOtpRequest} className="w-full py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-blue-600 shadow-md transition-colors text-lg">Send OTP Code</button></div>) : (<div className="space-y-8 animate-in fade-in mt-8"><p className="text-center text-slate-500 font-medium">Enter the 6-digit code sent to your phone.</p><div className="flex justify-between gap-3">{otp.map((digit, i) => (<input key={i} id={`otp-${i}`} type="text" maxLength="1" value={digit} onChange={(e) => handleOtpChange(i, e.target.value)} className="w-14 h-16 text-center text-2xl font-extrabold bg-slate-50 border border-slate-200 rounded-xl" />))}</div></div>)}</div>)}
             {step === 4 && role === 'seeker' && (<div className="animate-in fade-in slide-in-from-right-8 duration-500 m-auto w-full max-w-3xl"><h2 className="text-4xl font-extrabold text-slate-900 mb-2">Qualifications</h2><form onSubmit={handleNext} className="space-y-8 mt-8"><div className="grid grid-cols-1 md:grid-cols-2 gap-8"><div className="md:col-span-2"><label className="block text-sm font-bold text-slate-700 mb-2">Educational Attainment</label><select required value={seekerData.education} onChange={(e) => setSeekerData({...seekerData, education: e.target.value})} className="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 text-lg"><option value="">Select Level...</option><option value="HighSchool">High School Graduate</option><option value="College">College Graduate</option><option value="Vocational">Vocational / TESDA</option></select></div><div className="md:col-span-2 bg-slate-50 border border-slate-200 rounded-3xl p-8"><h4 className="font-bold text-slate-900 mb-2 text-lg">Upload Valid ID</h4><div className={`border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center text-center transition-all relative cursor-pointer ${seekerData.idFile ? 'border-green-400 bg-green-50' : 'border-slate-300 bg-white hover:bg-blue-50'}`}><input type="file" required accept="image/*" onChange={(e) => setSeekerData({...seekerData, idFile: e.target.files[0]})} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" /><UploadCloud size={40} className={seekerData.idFile ? "text-green-500 mb-4" : "text-slate-400 mb-4"} /><span className={`text-lg font-bold ${seekerData.idFile ? 'text-green-700' : 'text-blue-600'}`}>{seekerData.idFile ? `ID Selected: ${seekerData.idFile.name}` : 'Tap to upload your ID'}</span></div></div></div><div className="pt-8 mt-6 border-t border-slate-100 flex justify-end"><button type="submit" disabled={!seekerData.education || !seekerData.idFile} className="px-10 py-4 bg-blue-600 text-white text-lg font-bold rounded-xl disabled:opacity-50 transition-all">Next Step</button></div></form></div>)}
+
+            {/* --- SHARED FACE VERIFICATION --- */}
             {step === 5 && (
               <div className="animate-in fade-in slide-in-from-right-8 duration-500 m-auto w-full max-w-lg text-center">
                 <h2 className="text-4xl font-extrabold text-slate-900 mb-3">Face Verification</h2>
                 <p className="text-slate-500 mb-10 text-lg font-medium">To keep the platform secure and build your profile picture, please verify your face.</p>
-
                 <canvas ref={canvasRef} className="hidden"></canvas>
-
                 {!isFaceScanning && !faceVerified ? (
                   <div className="bg-slate-900 rounded-[2.5rem] p-10 shadow-2xl relative overflow-hidden">
-                    <div className="w-40 h-40 mx-auto border-4 border-slate-700 border-dashed rounded-full flex items-center justify-center mb-8 text-slate-500">
-                      <ScanFace size={80} />
-                    </div>
-                    <button onClick={startCamera} className="w-full py-5 bg-blue-600 text-white font-bold text-xl rounded-2xl hover:bg-blue-500 shadow-lg shadow-blue-600/30 flex items-center justify-center gap-3">
-                      <Camera size={24} /> Open Camera
-                    </button>
+                    <div className="w-40 h-40 mx-auto border-4 border-slate-700 border-dashed rounded-full flex items-center justify-center mb-8 text-slate-500"><ScanFace size={80} /></div>
+                    <button onClick={startCamera} className="w-full py-5 bg-blue-600 text-white font-bold text-xl rounded-2xl hover:bg-blue-500 shadow-lg shadow-blue-600/30 flex items-center justify-center gap-3"><Camera size={24} /> Open Camera</button>
                   </div>
                 ) : isFaceScanning && !isAnalyzing ? (
                   <div className="bg-slate-900 rounded-[2.5rem] p-10 shadow-2xl relative overflow-hidden">
@@ -337,31 +392,27 @@ const Onboarding = () => {
                       <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover transform scale-x-[-1]"></video>
                       <div className="absolute top-0 left-0 w-full h-1 bg-green-400 shadow-[0_0_20px_rgba(74,222,128,1)] animate-[bounce_2s_infinite]"></div>
                     </div>
-                    <button onClick={captureAndProcessFace} className="w-full py-4 bg-green-500 text-white font-bold text-lg rounded-xl hover:bg-green-400 shadow-md flex items-center justify-center gap-2">
-                      <ScanFace size={20}/> Capture & Process
-                    </button>
+                    <button onClick={captureAndProcessFace} className="w-full py-4 bg-green-500 text-white font-bold text-lg rounded-xl hover:bg-green-400 shadow-md flex items-center justify-center gap-2"><ScanFace size={20}/> Capture & Process</button>
                   </div>
                 ) : isAnalyzing ? (
                    <div className="bg-slate-900 rounded-[2.5rem] p-10 shadow-2xl">
-                     <div className="w-40 h-40 mx-auto border-[6px] border-slate-700 border-t-blue-500 rounded-full animate-spin mb-8 flex items-center justify-center">
-                        <Loader2 size={40} className="text-blue-500 animate-pulse" />
-                     </div>
+                     <div className="w-40 h-40 mx-auto border-[6px] border-slate-700 border-t-blue-500 rounded-full animate-spin mb-8 flex items-center justify-center"><Loader2 size={40} className="text-blue-500 animate-pulse" /></div>
                      <h3 className="text-white font-bold text-2xl mb-2">Analyzing Image...</h3>
                      <p className="text-slate-400 text-sm animate-pulse">Running AI background removal...</p>
                    </div>
                 ) : (
                   <div className="bg-green-50 border-2 border-green-200 rounded-[2.5rem] p-10 animate-in zoom-in-95 text-center">
-                    <div className="w-28 h-28 mx-auto bg-green-100 rounded-full flex items-center justify-center mb-6 text-green-600">
-                      <CheckCircle2 size={56} />
-                    </div>
+                    <div className="w-28 h-28 mx-auto bg-green-100 rounded-full flex items-center justify-center mb-6 text-green-600"><CheckCircle2 size={56} /></div>
                     <h3 className="text-green-800 font-extrabold text-3xl mb-3">Face Verified!</h3>
                     <p className="text-green-600 font-medium text-lg">Profile picture saved securely.</p>
                   </div>
                 )}
               </div>
             )}
+
+            {/* --- COMPLETION STEPS --- */}
             {step === 6 && role === 'seeker' && (<div className="animate-in fade-in slide-in-from-right-8 duration-500 m-auto w-full max-w-3xl"><div className="text-center mb-10"><h2 className="text-4xl font-extrabold text-slate-900 mb-3 tracking-tight">Setup your Resume</h2><p className="text-slate-500 text-lg">Upload an existing resume or skip for now. / <span className="italic">Mag-upload ng resume.</span></p></div><button onClick={() => setStep(8)} className="w-full flex flex-col sm:flex-row items-center justify-center gap-3 px-6 py-5 bg-white border-2 border-slate-200 text-slate-700 font-bold rounded-2xl hover:bg-slate-50 transition-colors shadow-sm"><span className="block text-lg">Skip to Dashboard</span><ChevronRight size={24} className="text-slate-400 ml-auto hidden sm:block" /></button></div>)}
-            {step === 8 && role === 'seeker' && (<div className="animate-in zoom-in-95 duration-500 text-center m-auto"><div className="flex flex-col items-center animate-in zoom-in duration-500"><div className="w-28 h-28 bg-green-100 rounded-full flex items-center justify-center mb-8 border-8 border-green-50"><CheckCircle2 size={48} className="text-green-600" /></div><h2 className="text-4xl font-extrabold text-slate-900 mb-4">Setup Complete!</h2><p className="text-slate-500 text-xl mb-10 max-w-md text-center">Your profile and identity are verified.</p><button onClick={handleFinish} className="flex items-center gap-2 px-12 py-5 bg-slate-900 text-white text-xl font-bold rounded-xl hover:bg-blue-600 transition-colors shadow-xl">Go to Dashboard <ArrowRight size={24} /></button></div></div>)}
+            {((step === 8 && role === 'seeker') || (step === 6 && role === 'hr')) && (<div className="animate-in zoom-in-95 duration-500 text-center m-auto"><div className="flex flex-col items-center animate-in zoom-in duration-500"><div className="w-28 h-28 bg-green-100 rounded-full flex items-center justify-center mb-8 border-8 border-green-50"><CheckCircle2 size={48} className="text-green-600" /></div><h2 className="text-4xl font-extrabold text-slate-900 mb-4">Setup Complete!</h2><p className="text-slate-500 text-xl mb-10 max-w-md text-center">Your profile and identity are verified.</p><button onClick={handleFinish} className="flex items-center gap-2 px-12 py-5 bg-slate-900 text-white text-xl font-bold rounded-xl hover:bg-blue-600 transition-colors shadow-xl">Go to Dashboard <ArrowRight size={24} /></button></div></div>)}
 
           </main>
         </div>
