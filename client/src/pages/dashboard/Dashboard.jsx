@@ -11,10 +11,8 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   
-  // --- MOBILE MENU STATE ---
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // --- DATABASE STATE ---
   const [stats, setStats] = useState([]);
   const [recentApps, setRecentApps] = useState([]);
   const [recentMessages, setRecentMessages] = useState([]);
@@ -36,14 +34,14 @@ const Dashboard = () => {
         const data = await response.json();
         
         setStats([
-          { label: "Active Applications", value: data.stats.activeCount, icon: <Briefcase size={20} className="sm:w-6 sm:h-6" />, color: "text-blue-600", bg: "bg-blue-50" },
-          { label: "Upcoming Interviews", value: data.stats.interviewCount, icon: <Clock size={20} className="sm:w-6 sm:h-6" />, color: "text-orange-600", bg: "bg-orange-50" },
-          { label: "Unread Messages", value: data.stats.unreadMessages, icon: <MessageSquare size={20} className="sm:w-6 sm:h-6" />, color: "text-green-600", bg: "bg-green-50" },
-          { label: "Saved Jobs", value: data.stats.savedCount, icon: <Bookmark size={20} className="sm:w-6 sm:h-6" />, color: "text-purple-600", bg: "bg-purple-50" }
+          { label: "Active Applications", value: data.stats.activeCount || 0, icon: <Briefcase size={20} className="sm:w-6 sm:h-6" />, color: "text-blue-600", bg: "bg-blue-50" },
+          { label: "Upcoming Interviews", value: data.stats.interviewCount || 0, icon: <Clock size={20} className="sm:w-6 sm:h-6" />, color: "text-orange-600", bg: "bg-orange-50" },
+          { label: "Unread Messages", value: data.stats.unreadMessages || 0, icon: <MessageSquare size={20} className="sm:w-6 sm:h-6" />, color: "text-green-600", bg: "bg-green-50" },
+          { label: "Saved Jobs", value: data.stats.savedCount || 0, icon: <Bookmark size={20} className="sm:w-6 sm:h-6" />, color: "text-purple-600", bg: "bg-purple-50" }
         ]);
-        setRecentApps(data.recentApps);
-        setRecentMessages(data.recentMessages);
-        setRecommendedJobs(data.recommendedJobs);
+        setRecentApps(data.recentApps || []);
+        setRecentMessages(data.recentMessages || []);
+        setRecommendedJobs(data.recommendedJobs || []);
       } catch (error) {
         console.error("Dashboard Load Error:", error);
       } finally {
@@ -61,7 +59,30 @@ const Dashboard = () => {
     }
   };
 
-  if (!user || loading) return <div className="min-h-screen flex flex-col items-center justify-center font-bold text-slate-400 bg-slate-50"><Loader2 className="animate-spin text-blue-600 mb-4" size={40}/> Syncing your CareerFlow...</div>;
+  // --- UX HELPERS ---
+  const formatSalary = (min, max) => {
+    if (!min && !max) return "Salary Undisclosed";
+    const formatter = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', maximumFractionDigits: 0 });
+    if (min && !max) return `${formatter.format(min)}+`;
+    if (!min && max) return `Up to ${formatter.format(max)}`;
+    return `${formatter.format(min)} - ${formatter.format(max)}`;
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "Recently";
+    return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const getStatusBadge = (status) => {
+    const s = (status || 'pending').toLowerCase();
+    if (s.includes('hired') || s.includes('offer')) return 'bg-green-100 text-green-700 border border-green-200';
+    if (s.includes('interview')) return 'bg-blue-100 text-blue-700 border border-blue-200';
+    if (s.includes('reject') || s.includes('decline')) return 'bg-red-50 text-red-600 border border-red-100';
+    return 'bg-yellow-100 text-yellow-700 border border-yellow-200';
+  };
+
+  // UX FIX: Keep Sidebar/Header rendered even while loading
+  if (!user) return null; 
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex overflow-hidden">
@@ -139,7 +160,7 @@ const Dashboard = () => {
             </button>
             <div className="text-right hidden sm:block">
               <p className="text-sm font-bold text-slate-900 leading-none">{user.username}</p>
-              <p className="text-xs text-slate-500 mt-1 uppercase tracking-tighter">{user.role}</p>
+              <p className="text-xs text-slate-500 mt-1 uppercase tracking-tighter">{user.role.replace('_', ' ')}</p>
             </div>
             <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-blue-100 text-blue-700 border border-blue-200 flex items-center justify-center font-bold text-sm sm:text-base hidden sm:flex">
               {user.username.charAt(0).toUpperCase()}
@@ -148,120 +169,142 @@ const Dashboard = () => {
         </header>
 
         {/* SCROLLABLE CONTENT */}
-        <main className="flex-1 p-4 sm:p-8 overflow-y-auto pb-24 lg:pb-8">
-          <div className="max-w-[1200px] mx-auto space-y-6 sm:space-y-8">
-            
-            {/* WELCOME BANNER */}
-            <div className="bg-slate-900 text-white rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-xl relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6">
-              <div className="absolute top-0 right-0 w-48 h-48 sm:w-64 sm:h-64 bg-blue-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
-              <div className="relative z-10 w-full">
-                <h2 className="text-xl sm:text-3xl font-extrabold mb-1 sm:mb-2">Welcome back, {user.username.split(' ')[0]}!</h2>
-                <p className="text-slate-300 text-sm sm:text-base">You have <span className="text-white font-bold">{stats[1]?.value} interviews scheduled</span> and <span className="text-white font-bold">{stats[2]?.value} unread messages</span>.</p>
-              </div>
-            </div>
-
-            {/* STATS GRID */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-              {stats.map((stat, idx) => (
-                <div key={`stat-${idx}`} className="bg-white border border-slate-200 rounded-xl sm:rounded-2xl p-3 sm:p-5 shadow-sm flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-                  <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0 ${stat.bg} ${stat.color}`}>{stat.icon}</div>
-                  <div>
-                    <h3 className="text-2xl sm:text-2xl font-black text-slate-900 leading-none mb-1">{stat.value}</h3>
-                    <p className="text-[9px] sm:text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">{stat.label}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
+        <main className="flex-1 p-4 sm:p-8 overflow-y-auto pb-24 lg:pb-8 relative">
+          
+          {loading ? (
+             <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
+               <Loader2 className="animate-spin text-blue-600 mb-4" size={40}/>
+               <p className="font-bold text-slate-400">Loading your dashboard...</p>
+             </div>
+          ) : (
+            <div className="max-w-[1200px] mx-auto space-y-6 sm:space-y-8 animate-in fade-in duration-500">
               
-              {/* LEFT COLUMN: APPS & MESSAGES */}
-              <div className="lg:col-span-7 space-y-6 sm:space-y-8">
-                
-                {/* Recent Applications */}
-                <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-sm flex flex-col">
-                  <div className="flex items-center justify-between mb-4 sm:mb-6">
-                     <h3 className="text-base sm:text-lg font-bold text-slate-900">Recent Applications</h3>
-                     <Link to="/applications" className="text-xs font-bold text-blue-600 hover:underline">View All</Link>
-                  </div>
-                  
-                  <div className="space-y-3 sm:space-y-4">
-                    {recentApps.length === 0 ? (
-                      <div className="text-center p-6 text-slate-400 font-medium text-sm border-2 border-dashed rounded-xl">No active applications yet.</div>
-                    ) : recentApps.map((app, idx) => (
-                      <div key={app.id || app.app_id || `app-${idx}`} className="p-4 rounded-xl sm:rounded-2xl border border-slate-100 bg-slate-50 hover:border-blue-200 transition-colors group">
-                        <div className="flex justify-between items-start mb-2">
-                          <h4 className="font-bold text-slate-900 group-hover:text-blue-700 transition-colors truncate pr-2 text-sm sm:text-base">{app.jobTitle}</h4>
-                          <span className="text-[10px] sm:text-xs font-bold text-slate-400 shrink-0">{new Date(app.applied_at).toLocaleDateString()}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600 mb-4"><Building2 size={14} className="text-slate-400 shrink-0"/> <span className="truncate">{app.company}</span></div>
-                        <div className="flex items-center justify-between">
-                          <span className={`flex items-center gap-1 px-2.5 py-1 rounded text-[9px] sm:text-[10px] font-black uppercase tracking-widest ${app.status?.includes('Interview') ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                            {app.status}
-                          </span>
-                          <Link to={`/application/${app.id || app.app_id}`} className="text-xs sm:text-sm font-bold text-slate-500 hover:text-blue-600 flex items-center gap-1">Track <ChevronRight size={16}/></Link>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+              {/* WELCOME BANNER */}
+              <div className="bg-slate-900 text-white rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-xl relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6">
+                <div className="absolute top-0 right-0 w-48 h-48 sm:w-64 sm:h-64 bg-blue-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
+                <div className="relative z-10 w-full">
+                  <h2 className="text-xl sm:text-3xl font-extrabold mb-1 sm:mb-2">Welcome back, {user.username.split(' ')[0]}!</h2>
+                  <p className="text-slate-300 text-sm sm:text-base">
+                    You have <span className="text-white font-bold">{stats[1]?.value || 0} interviews scheduled</span> and <span className="text-white font-bold">{stats[2]?.value || 0} unread messages</span>.
+                  </p>
                 </div>
+                {/* UX FIX: Actionable button in the banner */}
+                <div className="relative z-10 shrink-0">
+                  <Link to="/applications" className="px-5 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl font-bold text-sm transition-colors flex items-center gap-2">
+                    Review Status <ChevronRight size={16}/>
+                  </Link>
+                </div>
+              </div>
 
-                {/* Recent Messages */}
-                <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-sm flex flex-col">
-                  <div className="flex items-center justify-between mb-4 sm:mb-6">
-                    <h3 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2"><MessageSquare size={18} className="text-blue-600" /> Inbox</h3>
-                    <Link to="/messages" className="text-xs font-bold text-blue-600 hover:underline">Open Chat</Link>
+              {/* STATS GRID */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+                {stats.map((stat, idx) => (
+                  <div key={`stat-${idx}`} className="bg-white border border-slate-200 rounded-xl sm:rounded-2xl p-3 sm:p-5 shadow-sm flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0 ${stat.bg} ${stat.color}`}>{stat.icon}</div>
+                    <div>
+                      <h3 className="text-2xl sm:text-2xl font-black text-slate-900 leading-none mb-1">{stat.value}</h3>
+                      <p className="text-[9px] sm:text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">{stat.label}</p>
+                    </div>
                   </div>
-                  <div className="space-y-3">
-                    {recentMessages.length === 0 ? (
-                      <div className="text-center p-6 text-slate-400 font-medium text-sm border-2 border-dashed rounded-xl">Your inbox is empty.</div>
-                    ) : recentMessages.map((chat, idx) => (
-                      <Link key={chat.message_id || chat.id || `msg-${idx}`} to="/messages" className={`block p-4 rounded-xl sm:rounded-2xl border transition-all ${chat.is_read === 0 ? 'bg-blue-50/50 border-blue-200' : 'bg-white border-slate-100 hover:border-slate-300'}`}>
-                        <div className="flex gap-3 sm:gap-4 items-center">
-                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-slate-100 flex items-center justify-center font-bold text-blue-600 shrink-0">{chat.company?.[0]}</div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex justify-between items-center mb-1">
-                              <h4 className="font-bold text-sm sm:text-base text-slate-900 truncate pr-2">{chat.company}</h4>
-                              <span className="text-[10px] font-bold text-slate-400 shrink-0">{new Date(chat.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                            </div>
-                            <p className="text-xs sm:text-sm truncate text-slate-500 font-medium">{chat.message_text}</p>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
+                
+                {/* LEFT COLUMN: APPS & MESSAGES */}
+                <div className="lg:col-span-7 space-y-6 sm:space-y-8">
+                  
+                  {/* Recent Applications */}
+                  <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-sm flex flex-col">
+                    <div className="flex items-center justify-between mb-4 sm:mb-6">
+                       <h3 className="text-base sm:text-lg font-bold text-slate-900">Recent Applications</h3>
+                       <Link to="/applications" className="text-xs font-bold text-blue-600 hover:underline">View All</Link>
+                    </div>
+                    
+                    <div className="space-y-3 sm:space-y-4">
+                      {recentApps.length === 0 ? (
+                        <div className="text-center p-8 bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl">
+                           <Briefcase size={32} className="mx-auto text-slate-300 mb-3" />
+                           <p className="text-slate-500 font-medium text-sm mb-3">You haven't applied to any jobs yet.</p>
+                           <Link to="/jobs" className="text-sm font-bold text-blue-600 hover:underline">Browse open positions</Link>
+                        </div>
+                      ) : recentApps.map((app, idx) => (
+                        <div key={app.id || app.app_id || `app-${idx}`} className="p-4 rounded-xl sm:rounded-2xl border border-slate-100 bg-white hover:bg-slate-50 hover:border-blue-200 transition-colors group shadow-sm">
+                          <div className="flex justify-between items-start mb-2">
+                            <h4 className="font-bold text-slate-900 group-hover:text-blue-700 transition-colors truncate pr-2 text-sm sm:text-base">{app.jobTitle}</h4>
+                            <span className="text-[10px] sm:text-xs font-bold text-slate-400 shrink-0">{formatDate(app.applied_at)}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600 mb-4"><Building2 size={14} className="text-slate-400 shrink-0"/> <span className="truncate">{app.company}</span></div>
+                          <div className="flex items-center justify-between">
+                            <span className={`flex items-center gap-1 px-2.5 py-1 rounded text-[9px] sm:text-[10px] font-black uppercase tracking-widest ${getStatusBadge(app.status)}`}>
+                              {app.status || 'Pending'}
+                            </span>
+                            <Link to={`/application/${app.id || app.app_id}`} className="text-xs sm:text-sm font-bold text-slate-500 hover:text-blue-600 flex items-center gap-1">Track <ChevronRight size={16}/></Link>
                           </div>
                         </div>
-                      </Link>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              {/* RIGHT COLUMN: JOB MATCHES */}
-              <div className="lg:col-span-5">
-                <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-sm flex flex-col lg:sticky lg:top-24">
-                  <div className="flex items-center justify-between mb-4 sm:mb-6">
-                     <h3 className="text-base sm:text-lg font-bold text-slate-900">Matches for You</h3>
-                     <Link to="/jobs" className="text-xs font-bold text-blue-600 hover:underline">Find More</Link>
-                  </div>
-                  <div className="space-y-4">
-                    {recommendedJobs.length === 0 ? (
-                      <div className="text-center p-6 text-slate-400 font-medium text-sm border-2 border-dashed rounded-xl">No new matches today.</div>
-                    ) : recommendedJobs.map((job, idx) => (
-                      <div key={job.job_id || `job-${idx}`} className="p-4 rounded-xl sm:rounded-2xl border border-slate-100 bg-white shadow-sm hover:shadow-md hover:border-blue-200 transition-all group">
-                        <Link to={`/jobs/${job.job_id}`}><h4 className="font-bold text-sm sm:text-base text-slate-900 group-hover:text-blue-700 transition-colors truncate mb-1">{job.title}</h4></Link>
-                        <p className="text-xs font-medium text-slate-600 mb-3 truncate">{job.company_name}</p>
-                        <div className="flex items-center gap-3 sm:gap-4 text-[10px] sm:text-xs font-bold text-slate-500 mb-4">
-                          <span className="flex items-center gap-1"><MapPin size={12} sm={14}/> {job.location}</span>
-                          <span className="text-green-600">₱{job.salary_min}</span>
+                  {/* Recent Messages */}
+                  <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-sm flex flex-col">
+                    <div className="flex items-center justify-between mb-4 sm:mb-6">
+                      <h3 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2"><MessageSquare size={18} className="text-blue-600" /> Inbox</h3>
+                      <Link to="/messages" className="text-xs font-bold text-blue-600 hover:underline">Open Chat</Link>
+                    </div>
+                    <div className="space-y-3">
+                      {recentMessages.length === 0 ? (
+                        <div className="text-center p-8 bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl">
+                          <p className="text-slate-500 font-medium text-sm">Your inbox is empty.</p>
                         </div>
-                        <Link to={`/jobs/${job.job_id}`} className="w-full flex items-center justify-center gap-2 py-3 sm:py-2.5 bg-slate-900 text-white text-xs sm:text-sm font-bold rounded-xl hover:bg-slate-800 transition-colors shadow-sm active:scale-95">
-                          <Mic size={16} /> Voice Apply
+                      ) : recentMessages.map((chat, idx) => (
+                        <Link key={chat.message_id || chat.id || `msg-${idx}`} to="/messages" className={`block p-4 rounded-xl sm:rounded-2xl border transition-all ${chat.is_read === 0 ? 'bg-blue-50/50 border-blue-200' : 'bg-white border-slate-100 hover:border-slate-300 shadow-sm'}`}>
+                          <div className="flex gap-3 sm:gap-4 items-center">
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-slate-100 flex items-center justify-center font-bold text-blue-600 shrink-0">{chat.company?.[0] || '?'}</div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex justify-between items-center mb-1">
+                                <h4 className="font-bold text-sm sm:text-base text-slate-900 truncate pr-2">{chat.company || 'Employer'}</h4>
+                                <span className="text-[10px] font-bold text-slate-400 shrink-0">{new Date(chat.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                              </div>
+                              <p className="text-xs sm:text-sm truncate text-slate-500 font-medium">{chat.message_text}</p>
+                            </div>
+                          </div>
                         </Link>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
 
+                {/* RIGHT COLUMN: JOB MATCHES */}
+                <div className="lg:col-span-5">
+                  <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-sm flex flex-col lg:sticky lg:top-24">
+                    <div className="flex items-center justify-between mb-4 sm:mb-6">
+                       <h3 className="text-base sm:text-lg font-bold text-slate-900">Matches for You</h3>
+                       <Link to="/jobs" className="text-xs font-bold text-blue-600 hover:underline">Find More</Link>
+                    </div>
+                    <div className="space-y-4">
+                      {recommendedJobs.length === 0 ? (
+                        <div className="text-center p-6 text-slate-400 font-medium text-sm border-2 border-dashed border-slate-200 rounded-xl">No new matches today.</div>
+                      ) : recommendedJobs.map((job, idx) => (
+                        <div key={job.job_id || `job-${idx}`} className="p-4 rounded-xl sm:rounded-2xl border border-slate-100 bg-white shadow-sm hover:shadow-md hover:border-blue-200 transition-all group">
+                          <Link to={`/jobs/${job.job_id}`}><h4 className="font-bold text-sm sm:text-base text-slate-900 group-hover:text-blue-700 transition-colors truncate mb-1">{job.title}</h4></Link>
+                          <p className="text-xs font-medium text-slate-600 mb-3 truncate">{job.company_name}</p>
+                          <div className="flex items-center gap-3 sm:gap-4 text-[10px] sm:text-xs font-bold text-slate-500 mb-4">
+                            <span className="flex items-center gap-1"><MapPin size={12} sm={14}/> {job.location}</span>
+                            <span className="text-green-600 flex items-center gap-0.5"><DollarSign size={12}/>{formatSalary(job.salary_min, job.salary_max).replace('₱', '')}</span>
+                          </div>
+                          <Link to={`/jobs/${job.job_id}`} className="w-full flex items-center justify-center gap-2 py-3 sm:py-2.5 bg-slate-900 text-white text-xs sm:text-sm font-bold rounded-xl hover:bg-slate-800 transition-colors shadow-sm active:scale-95">
+                            <Mic size={16} /> Voice Apply
+                          </Link>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+              </div>
             </div>
-          </div>
+          )}
         </main>
       </div>
 
