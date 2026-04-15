@@ -10,7 +10,8 @@ import {
 
 const Onboarding = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
+  // STEP LOGIC UPDATE: We skip Step 1 because Role Selection is now in Register.jsx
+  const [step, setStep] = useState(2);
   const [role, setRole] = useState(null); 
   const [scrolled, setScrolled] = useState(false);
   
@@ -18,6 +19,7 @@ const Onboarding = () => {
     firstName: '', lastName: '', email: '', phone: '',
     dob: '', gender: '', address: '', education: '',
     preferredJobs: [], newJobInput: '', idFile: null,
+    resumeFile: null, // <-- ADDED RESUME FILE STATE
     profilePicUrl: null 
   });
   
@@ -48,37 +50,27 @@ const Onboarding = () => {
   };
 
   useEffect(() => {
-    // --- AUTO-FILL LOGIC ---
-    // Grabs the newly registered user data to skip typing
+    // --- AUTO-FILL & AUTO-ROLE LOGIC ---
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
       const parsedUser = JSON.parse(savedUser);
+      setRole(parsedUser.role || 'job_seeker'); // Automatically set the role they picked during registration
       
-      // Safely split "Juan Dela Cruz" into "Juan" and "Dela Cruz"
       const nameParts = (parsedUser.username || '').split(' ');
       const firstName = nameParts[0] || '';
       const lastName = nameParts.slice(1).join(' ') || '';
       const email = parsedUser.email || '';
 
-      setSeekerData(prev => ({
-        ...prev,
-        firstName: firstName,
-        lastName: lastName,
-        email: email
-      }));
-
-      setHrData(prev => ({
-        ...prev,
-        firstName: firstName,
-        lastName: lastName,
-        corporateEmail: email
-      }));
+      setSeekerData(prev => ({ ...prev, firstName, lastName, email }));
+      setHrData(prev => ({ ...prev, firstName, lastName, corporateEmail: email }));
+    } else {
+      navigate('/login'); // Boot them out if they try to access this page without logging in
     }
 
     const handleScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [navigate]);
 
   const handleNext = (e) => {
     if (e) e.preventDefault();
@@ -122,13 +114,13 @@ const Onboarding = () => {
       });
 
       if (response.ok) {
-        const updatedUser = { ...savedUser, is_onboarded: 1 };
+        const updatedUser = { ...savedUser, is_onboarded: 1, role: role };
         localStorage.setItem('user', JSON.stringify(updatedUser));
         
-        if (role === 'seeker') {
-          window.location.href = "/Dashboard"; 
-        } else {
+        if (role === 'hr') {
           window.location.href = "/hr-dashboard";
+        } else {
+          window.location.href = "/Dashboard"; 
         }
       } else {
         const result = await response.json();
@@ -203,7 +195,6 @@ const Onboarding = () => {
 
       if (response.ok) {
         setOtpSent(true); 
-        alert("OTP sent to your phone! Please check your messages.");
       } else {
         alert("Failed to send OTP.");
       }
@@ -245,7 +236,8 @@ const Onboarding = () => {
       setTimeout(() => {
         setIsAnalyzing(false);
         setFaceVerified(true);
-        setTimeout(() => setStep(role === 'hr' ? 8 : 6), 2000);
+        // FIX 6: Clean state logic. Max step is 7 now.
+        setTimeout(() => setStep(role === 'hr' ? 7 : 6), 2000);
       }, 4000);
     } catch (error) {
       console.error("Face Processing Error:", error);
@@ -306,6 +298,8 @@ const Onboarding = () => {
     </div>
   );
 
+  if (!role) return null; // Wait for role to auto-populate from localStorage
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col items-center">
       <nav className={`fixed top-0 left-0 w-full z-50 transition-all duration-200 border-b ${scrolled ? 'bg-white shadow-sm border-slate-200 py-3' : 'bg-slate-900 border-slate-800 py-4'}`}>
@@ -332,34 +326,11 @@ const Onboarding = () => {
       <div className="w-full max-w-[1400px] px-4 sm:px-8 pt-28 pb-12 flex-1 flex justify-center items-stretch">
         <div className="w-full bg-white rounded-3xl shadow-xl flex overflow-hidden border border-slate-200">
           
-          {role === 'seeker' && step > 1 && step < 8 && <SeekerSidebar />}
-          {role === 'hr' && step > 1 && step < 8 && <HrSidebar />}
+          {/* SIDEBARS */}
+          {role === 'seeker' && step < 7 && <SeekerSidebar />}
+          {role === 'hr' && step < 7 && <HrSidebar />}
 
-          <main className={`flex-1 flex flex-col ${(step > 1 && step < 8) ? 'lg:w-2/3' : 'w-full'} p-8 sm:p-14 relative overflow-y-auto`}>
-            
-            {/* --- STEP 1: CHOOSE ROLE --- */}
-            {step === 1 && (
-              <div className="w-full max-w-4xl mx-auto m-auto animate-in fade-in duration-500">
-                <div className="text-center mb-12">
-                  <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white mx-auto mb-6 shadow-xl"><LayoutDashboard size={32} /></div>
-                  <h2 className="text-5xl font-extrabold mb-4">Welcome to CareerFlow</h2>
-                  <p className="text-slate-500 text-xl">How will you use the platform?</p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <button onClick={() => setRole('seeker')} className={`flex flex-col items-center text-center p-10 rounded-3xl border-2 transition-all ${role === 'seeker' ? 'border-blue-600 bg-blue-50/50 shadow-lg scale-[1.02]' : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'}`}>
-                    <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 ${role === 'seeker' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}><User size={40} /></div>
-                    <h3 className="text-2xl font-bold text-slate-900 mb-2">I'm looking for a job</h3>
-                    <p className="text-blue-600 font-bold text-base">Naghahanap ako ng trabaho</p>
-                  </button>
-                  <button onClick={() => setRole('hr')} className={`flex flex-col items-center text-center p-10 rounded-3xl border-2 transition-all ${role === 'hr' ? 'border-blue-600 bg-blue-50/50 shadow-lg scale-[1.02]' : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'}`}>
-                    <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 ${role === 'hr' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}><Building2 size={40} /></div>
-                    <h3 className="text-2xl font-bold text-slate-900 mb-2">I'm hiring employees</h3>
-                    <p className="text-blue-600 font-bold text-base">Naghahanap ako ng empleyado</p>
-                  </button>
-                </div>
-                <div className="mt-12 flex justify-end"><button onClick={handleNext} disabled={!role} className="flex items-center gap-2 px-10 py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-blue-600 transition-colors disabled:opacity-50 text-lg">Continue <ArrowRight size={20} /></button></div>
-              </div>
-            )}
+          <main className={`flex-1 flex flex-col ${step < 7 ? 'lg:w-2/3' : 'w-full'} p-8 sm:p-14 relative overflow-y-auto`}>
             
             {/* --- SHARED STEP 2: PERSONAL INFO --- */}
             {step === 2 && role === 'seeker' && (
@@ -367,11 +338,15 @@ const Onboarding = () => {
                 <h2 className="text-4xl font-extrabold text-slate-900 mb-2">Personal Information</h2>
                 <form onSubmit={handleStep2Submit} className="space-y-6 mt-8">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div><label className="block text-sm font-bold text-slate-700 mb-2">First Name</label><input type="text" required value={seekerData.firstName} onChange={(e) => setSeekerData({...seekerData, firstName: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl" /></div>
-                    <div><label className="block text-sm font-bold text-slate-700 mb-2">Last Name</label><input type="text" required value={seekerData.lastName} onChange={(e) => setSeekerData({...seekerData, lastName: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl" /></div>
-                    <div><label className="block text-sm font-bold text-slate-700 mb-2">Email Address</label><input type="email" required value={seekerData.email} onChange={(e) => setSeekerData({...seekerData, email: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl" /></div>
-                    <div><label className="block text-sm font-bold text-slate-700 mb-2">Birthdate</label><input type="date" required max={maxDateString} value={seekerData.dob} onChange={(e) => setSeekerData({...seekerData, dob: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl" /></div>
-                    <div className="md:col-span-2"><label className="block text-sm font-bold text-slate-700 mb-2">Home Address</label><input type="text" required value={seekerData.address} onChange={(e) => setSeekerData({...seekerData, address: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl" /></div>
+                    {/* VISUAL HIERARCHY FIX: Gray out auto-filled details */}
+                    <div><label className="block text-sm font-bold text-slate-700 mb-2">First Name</label><input type="text" readOnly value={seekerData.firstName} className="w-full px-5 py-4 bg-slate-100 text-slate-500 border border-slate-200 rounded-xl cursor-not-allowed" /></div>
+                    <div><label className="block text-sm font-bold text-slate-700 mb-2">Last Name</label><input type="text" readOnly value={seekerData.lastName} className="w-full px-5 py-4 bg-slate-100 text-slate-500 border border-slate-200 rounded-xl cursor-not-allowed" /></div>
+                    <div><label className="block text-sm font-bold text-slate-700 mb-2">Email Address</label><input type="email" readOnly value={seekerData.email} className="w-full px-5 py-4 bg-slate-100 text-slate-500 border border-slate-200 rounded-xl cursor-not-allowed" /></div>
+                    
+                    {/* VISUAL HIERARCHY FIX: Highlight empty required fields */}
+                    <div><label className="block text-sm font-bold text-slate-700 mb-2">Birthdate <span className="text-red-500">*</span></label><input type="date" required max={maxDateString} value={seekerData.dob} onChange={(e) => setSeekerData({...seekerData, dob: e.target.value})} className="w-full px-5 py-4 bg-white border-2 border-blue-100 focus:border-blue-600 rounded-xl transition-colors shadow-sm" /></div>
+                    <div className="md:col-span-2"><label className="block text-sm font-bold text-slate-700 mb-2">Home Address <span className="text-red-500">*</span></label><input type="text" required placeholder="Complete home address" value={seekerData.address} onChange={(e) => setSeekerData({...seekerData, address: e.target.value})} className="w-full px-5 py-4 bg-white border-2 border-blue-100 focus:border-blue-600 rounded-xl transition-colors shadow-sm" /></div>
+                    <div className="md:col-span-2"><label className="block text-sm font-bold text-slate-700 mb-2">Personal Phone <span className="text-red-500">*</span></label><input type="tel" required value={seekerData.phone} onChange={(e) => setSeekerData({...seekerData, phone: e.target.value})} className="w-full px-5 py-4 bg-white border-2 border-blue-100 focus:border-blue-600 rounded-xl transition-colors shadow-sm" placeholder="09XX XXX XXXX" /></div>
                   </div>
                   <div className="pt-8 mt-6 border-t border-slate-100 flex justify-end"><button type="submit" className="px-10 py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700">Next Step</button></div>
                 </form>
@@ -384,10 +359,10 @@ const Onboarding = () => {
                 <p className="text-slate-500 mb-8 font-medium">Please provide your personal contact details to represent your company.</p>
                 <form onSubmit={handleStep2Submit} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div><label className="block text-sm font-bold text-slate-700 mb-2">First Name</label><input type="text" required value={hrData.firstName} onChange={(e) => setHrData({...hrData, firstName: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl" /></div>
-                    <div><label className="block text-sm font-bold text-slate-700 mb-2">Last Name</label><input type="text" required value={hrData.lastName} onChange={(e) => setHrData({...hrData, lastName: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl" /></div>
-                    <div><label className="block text-sm font-bold text-slate-700 mb-2">Birthdate</label><input type="date" required max={maxDateString} value={hrData.dob} onChange={(e) => setHrData({...hrData, dob: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl" /></div>
-                    <div><label className="block text-sm font-bold text-slate-700 mb-2">Personal Phone</label><input type="tel" required value={hrData.phone} onChange={(e) => setHrData({...hrData, phone: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl" placeholder="09XX XXX XXXX" /></div>
+                    <div><label className="block text-sm font-bold text-slate-700 mb-2">First Name</label><input type="text" readOnly value={hrData.firstName} className="w-full px-5 py-4 bg-slate-100 text-slate-500 border border-slate-200 rounded-xl cursor-not-allowed" /></div>
+                    <div><label className="block text-sm font-bold text-slate-700 mb-2">Last Name</label><input type="text" readOnly value={hrData.lastName} className="w-full px-5 py-4 bg-slate-100 text-slate-500 border border-slate-200 rounded-xl cursor-not-allowed" /></div>
+                    <div><label className="block text-sm font-bold text-slate-700 mb-2">Birthdate <span className="text-red-500">*</span></label><input type="date" required max={maxDateString} value={hrData.dob} onChange={(e) => setHrData({...hrData, dob: e.target.value})} className="w-full px-5 py-4 bg-white border-2 border-blue-100 focus:border-blue-600 rounded-xl transition-colors shadow-sm" /></div>
+                    <div><label className="block text-sm font-bold text-slate-700 mb-2">Personal Phone <span className="text-red-500">*</span></label><input type="tel" required value={hrData.phone} onChange={(e) => setHrData({...hrData, phone: e.target.value})} className="w-full px-5 py-4 bg-white border-2 border-blue-100 focus:border-blue-600 rounded-xl transition-colors shadow-sm" placeholder="09XX XXX XXXX" /></div>
                   </div>
                   <div className="pt-8 mt-6 border-t border-slate-100 flex justify-end"><button type="submit" className="px-10 py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700">Next Step</button></div>
                 </form>
@@ -399,19 +374,20 @@ const Onboarding = () => {
               <div className="animate-in fade-in slide-in-from-right-8 duration-500 m-auto w-full max-w-md">
                 <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mb-8 mx-auto"><Smartphone size={40} /></div>
                 <h2 className="text-4xl font-extrabold text-slate-900 mb-3 text-center">Verify Phone</h2>
+                
+                {/* UX REDUNDANCY FIX: Replaced input box with clean read-only text and edit link */}
                 {!otpSent ? (
-                  <div className="space-y-6 mt-8">
-                    <div>
-                      <label className="block text-sm font-bold text-slate-700 mb-2">Phone Number</label>
-                      <input 
-                        type="tel" 
-                        value={role === 'seeker' ? seekerData.phone : hrData.phone} 
-                        onChange={(e) => role === 'seeker' ? setSeekerData({...seekerData, phone: e.target.value}) : setHrData({...hrData, phone: e.target.value})} 
-                        className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xl tracking-wide" 
-                        placeholder="0912 345 6789" 
-                      />
-                    </div>
-                    <button onClick={sendOtpRequest} className="w-full py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-blue-600 shadow-md transition-colors text-lg">Send OTP Code</button>
+                  <div className="space-y-6 mt-8 text-center">
+                    <p className="text-lg text-slate-700 font-medium">We will send a 6-digit verification code to:</p>
+                    <p className="text-3xl font-extrabold tracking-widest text-slate-900 mb-2">
+                      {role === 'seeker' ? seekerData.phone : hrData.phone}
+                    </p>
+                    <button onClick={() => setStep(2)} className="text-blue-600 font-bold text-sm hover:underline">
+                      Wrong number? Edit here.
+                    </button>
+                    <button onClick={sendOtpRequest} className="w-full py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-blue-600 shadow-md transition-colors text-lg mt-8">
+                      Send OTP Code
+                    </button>
                   </div>
                 ) : (
                   <div className="space-y-8 animate-in fade-in mt-8">
@@ -419,11 +395,7 @@ const Onboarding = () => {
                     <div className="flex justify-between gap-3">
                       {otp.map((digit, i) => (
                         <input 
-                          key={i} 
-                          id={`otp-${i}`} 
-                          type="text" 
-                          maxLength="1" 
-                          value={digit} 
+                          key={i} id={`otp-${i}`} type="text" maxLength="1" value={digit} 
                           onChange={(e) => handleOtpChange(i, e.target.value)} 
                           className="w-14 h-16 text-center text-2xl font-extrabold bg-slate-50 border border-slate-200 rounded-xl" 
                         />
@@ -434,16 +406,16 @@ const Onboarding = () => {
               </div>
             )}
 
-            {/* --- HR SPECIFIC STEPS (Shifted) --- */}
+            {/* --- HR SPECIFIC STEPS --- */}
             {step === 4 && role === 'hr' && (
               <div className="animate-in fade-in slide-in-from-right-8 duration-500 m-auto w-full max-w-3xl">
                 <h2 className="text-4xl font-extrabold text-slate-900 mb-2">Company Profile</h2>
                 <p className="text-slate-500 mb-8 font-medium">Tell us about the organization you are hiring for.</p>
                 <form onSubmit={handleNext} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="md:col-span-2"><label className="block text-sm font-bold text-slate-700 mb-2">Registered Company Name</label><input type="text" required value={hrData.companyName} onChange={(e) => setHrData({...hrData, companyName: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl" /></div>
-                    <div><label className="block text-sm font-bold text-slate-700 mb-2">Industry</label><input type="text" required value={hrData.industry} onChange={(e) => setHrData({...hrData, industry: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl" placeholder="e.g. Technology, Retail" /></div>
-                    <div><label className="block text-sm font-bold text-slate-700 mb-2">Corporate Email</label><input type="email" required value={hrData.corporateEmail} onChange={(e) => setHrData({...hrData, corporateEmail: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-xl" /></div>
+                    <div className="md:col-span-2"><label className="block text-sm font-bold text-slate-700 mb-2">Registered Company Name <span className="text-red-500">*</span></label><input type="text" required value={hrData.companyName} onChange={(e) => setHrData({...hrData, companyName: e.target.value})} className="w-full px-5 py-4 bg-white border-2 border-blue-100 focus:border-blue-600 rounded-xl transition-colors shadow-sm" /></div>
+                    <div><label className="block text-sm font-bold text-slate-700 mb-2">Industry <span className="text-red-500">*</span></label><input type="text" required value={hrData.industry} onChange={(e) => setHrData({...hrData, industry: e.target.value})} className="w-full px-5 py-4 bg-white border-2 border-blue-100 focus:border-blue-600 rounded-xl transition-colors shadow-sm" placeholder="e.g. Technology, Retail" /></div>
+                    <div><label className="block text-sm font-bold text-slate-700 mb-2">Corporate Email</label><input type="email" readOnly value={hrData.corporateEmail} className="w-full px-5 py-4 bg-slate-100 text-slate-500 border border-slate-200 rounded-xl cursor-not-allowed" /></div>
                   </div>
                   <div className="pt-8 mt-6 border-t border-slate-100 flex justify-end"><button type="submit" className="px-10 py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700">Next Step</button></div>
                 </form>
@@ -482,8 +454,8 @@ const Onboarding = () => {
                 <form onSubmit={handleNext} className="space-y-8 mt-8">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-bold text-slate-700 mb-2">Educational Attainment</label>
-                      <select required value={seekerData.education} onChange={(e) => setSeekerData({...seekerData, education: e.target.value})} className="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 text-lg">
+                      <label className="block text-sm font-bold text-slate-700 mb-2">Educational Attainment <span className="text-red-500">*</span></label>
+                      <select required value={seekerData.education} onChange={(e) => setSeekerData({...seekerData, education: e.target.value})} className="w-full px-4 py-4 bg-white border-2 border-blue-100 focus:border-blue-600 rounded-xl font-bold text-slate-700 text-lg shadow-sm">
                         <option value="">Select Level...</option>
                         <option value="HighSchool">High School Graduate</option>
                         <option value="College">College Graduate</option>
@@ -514,6 +486,11 @@ const Onboarding = () => {
                   <div className="bg-slate-900 rounded-[2.5rem] p-10 shadow-2xl relative overflow-hidden">
                     <div className="w-40 h-40 mx-auto border-4 border-slate-700 border-dashed rounded-full flex items-center justify-center mb-8 text-slate-500"><ScanFace size={80} /></div>
                     <button onClick={startCamera} className="w-full py-5 bg-blue-600 text-white font-bold text-xl rounded-2xl hover:bg-blue-500 shadow-lg shadow-blue-600/30 flex items-center justify-center gap-3"><Camera size={24} /> Open Camera</button>
+                    {/* PSYCHOLOGICAL FRICTION FIX: Trust-building microcopy */}
+                    <p className="text-xs text-slate-400 mt-5 flex items-start justify-center gap-1.5 text-left leading-relaxed">
+                      <ShieldCheck size={14} className="shrink-0 mt-0.5 text-green-400"/> 
+                      Your photo is securely encrypted and used only for identity verification. It will never be shared without your consent.
+                    </p>
                   </div>
                 ) : isFaceScanning && !isAnalyzing ? (
                   <div className="bg-slate-900 rounded-[2.5rem] p-10 shadow-2xl relative overflow-hidden">
@@ -542,19 +519,36 @@ const Onboarding = () => {
             {/* --- SEEKER SPECIFIC STEP 6: RESUME --- */}
             {step === 6 && role === 'seeker' && (
               <div className="animate-in fade-in slide-in-from-right-8 duration-500 m-auto w-full max-w-3xl">
-                <div className="text-center mb-10">
+                <div className="text-center mb-8">
                   <h2 className="text-4xl font-extrabold text-slate-900 mb-3 tracking-tight">Setup your Resume</h2>
                   <p className="text-slate-500 text-lg">Upload an existing resume or skip for now. / <span className="italic">Mag-upload ng resume.</span></p>
                 </div>
-                <button onClick={() => setStep(8)} className="w-full flex flex-col sm:flex-row items-center justify-center gap-3 px-6 py-5 bg-white border-2 border-slate-200 text-slate-700 font-bold rounded-2xl hover:bg-slate-50 transition-colors shadow-sm">
-                  <span className="block text-lg">Skip to Dashboard</span>
-                  <ChevronRight size={24} className="text-slate-400 ml-auto hidden sm:block" />
-                </button>
+                
+                {/* GHOST RESUME FIX: Added actual file upload dropzone */}
+                <div className="bg-slate-50 border border-slate-200 rounded-3xl p-8 mb-8">
+                  <h4 className="font-bold text-slate-900 mb-4 text-lg">Upload Resume (PDF, DOCX)</h4>
+                  <div className={`border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center text-center transition-all relative cursor-pointer ${seekerData.resumeFile ? 'border-green-400 bg-green-50' : 'border-slate-300 bg-white hover:bg-blue-50'}`}>
+                    <input type="file" accept=".pdf,.doc,.docx" onChange={(e) => setSeekerData({...seekerData, resumeFile: e.target.files[0]})} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                    <FileText size={40} className={seekerData.resumeFile ? "text-green-500 mb-4" : "text-slate-400 mb-4"} />
+                    <span className={`text-lg font-bold ${seekerData.resumeFile ? 'text-green-700' : 'text-blue-600'}`}>
+                      {seekerData.resumeFile ? seekerData.resumeFile.name : 'Drag & drop or click to upload'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col-reverse sm:flex-row items-center gap-4">
+                  <button onClick={() => setStep(7)} className="w-full sm:w-auto px-8 py-4 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-colors">
+                    Skip for now
+                  </button>
+                  <button onClick={() => setStep(7)} disabled={!seekerData.resumeFile} className="w-full flex-1 py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                    Save Resume & Continue <ArrowRight size={20}/>
+                  </button>
+                </div>
               </div>
             )}
 
-            {/* --- SHARED COMPLETION STEP (Step 8) --- */}
-            {step === 8 && (
+            {/* --- SHARED COMPLETION STEP (Step 7) --- */}
+            {step === 7 && (
               <div className="animate-in zoom-in-95 duration-500 text-center m-auto">
                 <div className="flex flex-col items-center animate-in zoom-in duration-500">
                   <div className="w-28 h-28 bg-green-100 rounded-full flex items-center justify-center mb-8 border-8 border-green-50">

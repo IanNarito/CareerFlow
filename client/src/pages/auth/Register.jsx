@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, ArrowRight, LayoutDashboard, Sparkles, ArrowLeft } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, LayoutDashboard, Sparkles, ArrowLeft, Building2 } from 'lucide-react';
 
 const Register = () => {
   const navigate = useNavigate(); 
   const [formData, setFormData] = useState({
+    role: 'job_seeker', // Default role
     fullName: '',
     email: '',
     password: '',
@@ -14,6 +15,10 @@ const Register = () => {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleRoleSelect = (role) => {
+    setFormData({ ...formData, role });
   };
 
   const handleSubmit = async (e) => {
@@ -38,7 +43,7 @@ const Register = () => {
           fullName: formData.fullName, 
           email: formData.email,
           password: formData.password,
-          role: 'job_seeker'
+          role: formData.role // Using the selected role!
         }),
       });
 
@@ -46,7 +51,6 @@ const Register = () => {
 
       if (response.ok) {
         // --- AUTO-LOGIN FEATURE ---
-        // Instead of sending them to login, we log them in instantly behind the scenes
         const loginRes = await fetch(`${API_BASE_URL}/api/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -129,7 +133,7 @@ const Register = () => {
         </Link>
 
         <div className="max-w-md w-full py-12">
-          <div className="text-center lg:text-left mb-10">
+          <div className="text-center lg:text-left mb-8">
             <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">
               Create an account
             </h2>
@@ -139,6 +143,28 @@ const Register = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            
+            {/* ROLE SELECTION UI */}
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <button 
+                type="button" 
+                onClick={() => handleRoleSelect('job_seeker')} 
+                className={`p-4 border-2 rounded-xl text-left transition-all ${formData.role === 'job_seeker' ? 'border-blue-600 bg-blue-50 ring-4 ring-blue-50' : 'border-slate-200 hover:border-blue-300'}`}
+              >
+                <User className={formData.role === 'job_seeker' ? 'text-blue-600 mb-2' : 'text-slate-400 mb-2'} size={24}/>
+                <h3 className={`font-bold text-sm ${formData.role === 'job_seeker' ? 'text-blue-900' : 'text-slate-700'}`}>Job Seeker</h3>
+              </button>
+              
+              <button 
+                type="button" 
+                onClick={() => handleRoleSelect('hr')} 
+                className={`p-4 border-2 rounded-xl text-left transition-all ${formData.role === 'hr' ? 'border-blue-600 bg-blue-50 ring-4 ring-blue-50' : 'border-slate-200 hover:border-blue-300'}`}
+              >
+                <Building2 className={formData.role === 'hr' ? 'text-blue-600 mb-2' : 'text-slate-400 mb-2'} size={24}/>
+                <h3 className={`font-bold text-sm ${formData.role === 'hr' ? 'text-blue-900' : 'text-slate-700'}`}>Employer (HR)</h3>
+              </button>
+            </div>
+
             <div>
               <label htmlFor="fullName" className="block text-sm font-semibold text-slate-700 mb-2">
                 Full Name
