@@ -842,29 +842,29 @@ app.post('/api/ai/extract-resume', async (req, res) => {
 });
 
 
-// --- 1. GET SINGLE JOB DETAILS ---
+// --- GET ALL ACTIVE JOBS (Production Optimized) ---
 app.get('/api/jobs', async (req, res) => {
     try {
-        // Changed to LEFT JOIN so jobs still show up even if the HR hasn't created a profile yet
+        // COALESCE checks p.company_name first. If null, it uses j.company_name. If both are null, it uses 'Unknown'.
+        // This pushes the workload to the database, saving Node.js RAM and CPU.
         const query = `
-            SELECT j.*, p.company_name as profile_company 
+            SELECT 
+                j.*, 
+                COALESCE(p.company_name, j.company_name, 'Unknown Company') as company_name 
             FROM jobs j 
             LEFT JOIN profiles p ON j.hr_id = p.user_id 
             WHERE j.status = 'active' 
             ORDER BY j.posted_at DESC
         `;
+        
         const [rows] = await db.execute(query);
         
-        // Ensure company name always falls back to the one saved in the jobs table
-        const formattedRows = rows.map(job => ({
-            ...job,
-            company_name: job.profile_company || job.company_name || 'Unknown Company'
-        }));
-
-        res.json(formattedRows);
+        // No JavaScript .map() loop needed! We just send the perfectly shaped SQL rows directly.
+        res.json(rows);
+        
     } catch (err) {
         console.error("Fetch Jobs Error:", err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: "Failed to fetch job listings." });
     }
 });
 
