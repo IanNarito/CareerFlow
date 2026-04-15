@@ -3,9 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Search, Briefcase, Bookmark, 
   MessageSquare, Mic, Settings, Bell, Building2, 
-  Send, Paperclip, MoreVertical, Phone, ArrowLeft,
-  CheckCircle2, Clock, AlertCircle, FileText, ChevronRight,
-  File, X, Trash2, Archive, Ban, Home as HomeIcon, ShieldCheck
+  Send, Paperclip, MoreVertical, ArrowLeft,
+  CheckCircle2, Archive, Trash2, Home as HomeIcon, ShieldCheck, File, AlertCircle, X
 } from 'lucide-react';
 
 const Messages = () => {
@@ -13,21 +12,30 @@ const Messages = () => {
   const scrollRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  const [conversations, setConversations] = useState([]);
-  const [activeChatId, setActiveChatId] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [messageInput, setMessageInput] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [showChatOnMobile, setShowChatOnMobile] = useState(false);
-  const [attachment, setAttachment] = useState(null);
-  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
-
   const currentUser = JSON.parse(localStorage.getItem('user'));
   const userId = currentUser?.id || currentUser?.user_id;
   const safeUserName = currentUser?.username || "Applicant";
   
   const rawUrl = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL || '';
   const API_BASE_URL = rawUrl.replace(/\/$/, '');
+
+  const [conversations, setConversations] = useState([]);
+  const [activeChatId, setActiveChatId] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [messageInput, setMessageInput] = useState("");
+  const [loading, setLoading] = useState(true);
+  
+  // --- NEW UX STATES ---
+  const [showChatOnMobile, setShowChatOnMobile] = useState(false);
+  const [attachment, setAttachment] = useState(null);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [hiddenChats, setHiddenChats] = useState(() => JSON.parse(localStorage.getItem(`hidden_chats_${userId}`)) || []);
+
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(""), 3000);
+  };
 
   const fetchInbox = async () => {
     if (!userId) return;
@@ -38,8 +46,10 @@ const Messages = () => {
       
       const safeData = Array.isArray(data) ? data : [];
       
-      // UX STRICT RULE: Seekers ONLY see HRs in their inbox
-      const hrConversations = safeData.filter(chat => chat.role === 'hr');
+      // UX STRICT RULE: Seekers ONLY see HRs, and we filter out archived/deleted chats
+      const hrConversations = safeData
+        .filter(chat => chat.role === 'hr')
+        .filter(chat => !hiddenChats.includes(chat.id));
 
       setConversations(hrConversations);
     } catch (err) {
@@ -66,7 +76,7 @@ const Messages = () => {
     fetchInbox();
     const inboxInterval = setInterval(fetchInbox, 5000);
     return () => clearInterval(inboxInterval);
-  }, [userId, API_BASE_URL]);
+  }, [userId, API_BASE_URL, hiddenChats]);
 
   useEffect(() => {
     fetchHistory();
@@ -84,6 +94,17 @@ const Messages = () => {
     setActiveChatId(id);
     setShowChatOnMobile(true);
     setShowOptionsMenu(false);
+  };
+
+  // --- ARCHIVE & DELETE HANDLER ---
+  const handleHideChat = (chatId, action) => {
+    const updatedHidden = [...hiddenChats, chatId];
+    setHiddenChats(updatedHidden);
+    localStorage.setItem(`hidden_chats_${userId}`, JSON.stringify(updatedHidden));
+    setActiveChatId(null);
+    setShowOptionsMenu(false);
+    setShowChatOnMobile(false);
+    showToast(`Conversation ${action.toLowerCase()}d.`);
   };
 
   const handleFileChange = (e) => {
@@ -128,8 +149,16 @@ const Messages = () => {
   };
 
   return (
-    <div className="h-[100dvh] bg-slate-50 font-sans text-slate-900 flex overflow-hidden">
+    <div className="h-[100dvh] bg-slate-50 font-sans text-slate-900 flex overflow-hidden relative">
       
+      {/* UX TOAST NOTIFICATION */}
+      <div className={`fixed bottom-24 lg:bottom-10 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 ${toastMessage ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}>
+        <div className="bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl font-bold text-sm flex items-center gap-2">
+          <CheckCircle2 size={18} className="text-green-400" />
+          {toastMessage}
+        </div>
+      </div>
+
       <aside className="hidden lg:flex w-64 flex-col bg-slate-900 text-slate-300 border-r border-slate-800 h-full flex-shrink-0 z-20">
         <Link to="/" className="p-6 flex items-center gap-3 border-b border-slate-800 group hover:bg-slate-800/50 transition-colors cursor-pointer">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-sm group-hover:scale-105 transition-transform">
@@ -145,13 +174,10 @@ const Messages = () => {
           <SidebarLink icon={<MessageSquare size={20}/>} label="Messages" active to="/messages" />
           <SidebarLink icon={<FileText size={20}/>} label="My Resume" to="/resume" />
         </nav>
-        
-        {/* --- RESTORE THIS MISSING BLOCK --- */}
         <div className="p-4 border-t border-slate-800 space-y-2">
           <SidebarLink icon={<Mic size={20}/>} label="Voice Profile" to="/voice-builder" />
           <SidebarLink icon={<Settings size={20}/>} label="Settings" to="/settings" />
         </div>
-        {/* -------------------------------- */}
       </aside>
 
       <div className="flex-1 flex flex-col h-full overflow-hidden bg-white relative">
@@ -196,10 +222,11 @@ const Messages = () => {
                     <MessageSquare size={32} className="animate-pulse text-blue-300" /> Loading chats...
                 </div>
               ) : conversations.length === 0 ? (
-                <div className="p-8 text-center flex flex-col items-center gap-3">
-                    <Briefcase size={40} className="text-slate-300" />
-                    <p className="text-slate-500 font-medium">Your inbox is empty.</p>
-                    <Link to="/jobs" className="text-blue-600 font-bold text-sm hover:underline">Browse open jobs</Link>
+                <div className="p-8 text-center flex flex-col items-center gap-3 mt-10">
+                    <Briefcase size={48} className="text-slate-300 mb-2" />
+                    <h3 className="text-lg font-bold text-slate-900">Your inbox is empty</h3>
+                    <p className="text-slate-500 font-medium text-sm leading-relaxed max-w-[200px]">Applications you submit will appear here instantly.</p>
+                    <Link to="/jobs" className="mt-4 px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold shadow-sm hover:bg-blue-700 transition-colors">Find Jobs</Link>
                 </div>
               ) : (
                 conversations.map((chat) => {
@@ -224,7 +251,9 @@ const Messages = () => {
                         <p className="text-[11px] font-bold text-blue-600 truncate mb-1 uppercase tracking-wider flex items-center gap-1">
                           <ShieldCheck size={12}/> Verified Employer
                         </p>
-                        <p className="text-sm truncate text-slate-500 font-medium">{chat.lastMessage || "Application Update"}</p>
+                        <p className={`text-sm truncate font-medium ${chat.lastMessage === 'Application Submitted' ? 'text-green-600 italic' : 'text-slate-500'}`}>
+                          {chat.lastMessage}
+                        </p>
                       </div>
                     </button>
                   );
@@ -254,9 +283,44 @@ const Messages = () => {
                       </p>
                     </div>
                   </div>
+
+                  {/* UX UPGRADE: MEATBALL MENU FOR ARCHIVE & DELETE */}
+                  <div className="relative">
+                    <button onClick={() => setShowOptionsMenu(!showOptionsMenu)} className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-colors">
+                      <MoreVertical size={20} />
+                    </button>
+                    
+                    {showOptionsMenu && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setShowOptionsMenu(false)}></div>
+                        <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                          <button 
+                            onClick={() => handleHideChat(activeChat.id, 'Archive')}
+                            className="w-full px-4 py-3 text-left text-sm font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors"
+                          >
+                            <Archive size={16} className="text-slate-400" /> Archive Chat
+                          </button>
+                          <div className="h-px w-full bg-slate-100"></div>
+                          <button 
+                            onClick={() => handleHideChat(activeChat.id, 'Delete')}
+                            className="w-full px-4 py-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                          >
+                            <Trash2 size={16} className="text-red-500" /> Delete Chat
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </header>
 
                 <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#f8fafc] flex flex-col gap-4 min-h-0 custom-scrollbar">
+                  
+                  <div className="text-center my-4">
+                    <span className="px-4 py-1.5 bg-green-100 text-green-800 font-bold text-[10px] sm:text-xs rounded-full border border-green-200 shadow-sm uppercase tracking-widest">
+                      Application Submitted
+                    </span>
+                  </div>
+
                   <div className="bg-yellow-50/80 border border-yellow-200/60 p-3 rounded-2xl flex items-start gap-3 w-full sm:max-w-md mx-auto mb-2 shrink-0">
                     <AlertCircle size={18} className="text-yellow-600 shrink-0 mt-0.5" />
                     <p className="text-xs font-medium text-yellow-800 leading-relaxed">Safety Tip: Legitimate employers will never ask for "processing fees" or GCash payments via chat.</p>
@@ -264,7 +328,8 @@ const Messages = () => {
 
                   {messages.map((msg, idx) => {
                     const isMe = String(msg.sender_id) === String(userId);
-                    const hasAttachment = msg.message_text.includes('[Attached File:');
+                    const safeText = msg.message_text || "";
+                    const hasAttachment = safeText.includes('[Attached File:');
 
                     return (
                       <div key={msg.message_id || `msg-${idx}`} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
@@ -277,11 +342,11 @@ const Messages = () => {
                               </div>
                             )}
                             <p className="text-[15px] font-medium leading-relaxed whitespace-pre-wrap break-words">
-                              {msg.message_text.replace(/\[Attached File:.*?\]/g, '').trim()}
+                              {safeText.replace(/\[Attached File:.*?\]/g, '').trim()}
                             </p>
                           </div>
                           <div className={`text-[10px] mt-1.5 font-bold flex items-center gap-1 mx-1 ${isMe ? 'text-blue-600 justify-end' : 'text-slate-400'}`}>
-                            {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                             {isMe && <CheckCircle2 size={12} className="text-blue-500 ml-0.5" />}
                           </div>
                         </div>

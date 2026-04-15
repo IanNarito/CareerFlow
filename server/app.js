@@ -446,16 +446,42 @@ app.get('/api/messages/inbox/:userId', async (req, res) => {
     const { userId } = req.params;
     try {
         const query = `
-            SELECT u.user_id as id, u.username as name, u.role, p.company_name, p.first_name, p.last_name, m.message_text as lastMessage, m.created_at as time
+            SELECT 
+                u.user_id as id, 
+                u.username as name, 
+                u.role, 
+                p.company_name, 
+                p.first_name, 
+                p.last_name,
+                COALESCE(
+                    (SELECT message_text FROM messages WHERE (sender_id = u.user_id AND receiver_id = ?) OR (sender_id = ? AND receiver_id = u.user_id) ORDER BY created_at DESC LIMIT 1),
+                    'Application Submitted'
+                ) as lastMessage,
+                COALESCE(
+                    (SELECT created_at FROM messages WHERE (sender_id = u.user_id AND receiver_id = ?) OR (sender_id = ? AND receiver_id = u.user_id) ORDER BY created_at DESC LIMIT 1),
+                    (SELECT MAX(a.applied_at) FROM applications a JOIN jobs j ON a.job_id = j.job_id WHERE a.user_id = ? AND j.hr_id = u.user_id)
+                ) as time
             FROM users u
-            JOIN (SELECT IF(sender_id = ?, receiver_id, sender_id) as contact_id, MAX(created_at) as max_time FROM messages WHERE sender_id = ? OR receiver_id = ? GROUP BY contact_id) latest_msg ON u.user_id = latest_msg.contact_id
-            JOIN messages m ON ((m.sender_id = ? AND m.receiver_id = u.user_id) OR (m.sender_id = u.user_id AND m.receiver_id = ?)) AND m.created_at = latest_msg.max_time
-            LEFT JOIN profiles p ON u.user_id = p.user_id
-            ORDER BY m.created_at DESC
+            JOIN profiles p ON u.user_id = p.user_id
+            WHERE u.user_id IN (
+                SELECT sender_id FROM messages WHERE receiver_id = ?
+                UNION
+                SELECT receiver_id FROM messages WHERE sender_id = ?
+                UNION
+                SELECT j.hr_id FROM applications a JOIN jobs j ON a.job_id = j.job_id WHERE a.user_id = ?
+                UNION
+                SELECT a.user_id FROM applications a JOIN jobs j ON a.job_id = j.job_id WHERE j.hr_id = ?
+            )
+            AND u.user_id != ?
+            ORDER BY time DESC
         `;
-        const [rows] = await db.execute(query, [userId, userId, userId, userId, userId]);
+        // Pass the userId 10 times to fulfill all the ? parameters in this robust query
+        const [rows] = await db.execute(query, [userId, userId, userId, userId, userId, userId, userId, userId, userId, userId]);
         res.json(rows);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) {
+        console.error("Inbox Fetch Error:", err);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.get('/api/messages/history/:userId/:otherId', async (req, res) => {
