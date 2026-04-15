@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, Search, Briefcase, Bookmark, 
   MessageSquare, Mic, Settings, Bell, Building2, 
-  Send, Paperclip, MoreVertical, ArrowLeft,
+  Send, Paperclip, MoreVertical, ArrowLeft, FileText,
   CheckCircle2, Archive, Trash2, Home as HomeIcon, ShieldCheck, File, AlertCircle, X
 } from 'lucide-react';
 
