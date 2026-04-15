@@ -10,6 +10,10 @@ const CreateJob = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   
+  // --- SAFETY NET: Clean API URL (Moved outside so handlePublish can use it!) ---
+  const rawUrl = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL || 'http://localhost:5000';
+  const API_BASE_URL = rawUrl.replace(/\/$/, '');
+
   // --- DATABASE STATES ---
   const [companyName, setCompanyName] = useState(""); 
   const [hrId, setHrId] = useState(null);
@@ -33,7 +37,6 @@ const CreateJob = () => {
   });
 
   useEffect(() => {
-    const API_BASE_URL = import.meta.env?.VITE_API_URL || process.env.REACT_APP_API_URL;
     const savedUser = JSON.parse(localStorage.getItem('user'));
     if (!savedUser) { navigate('/login'); return; }
     
@@ -46,7 +49,7 @@ const CreateJob = () => {
         if (data.company_name) setCompanyName(data.company_name);
       })
       .catch(err => console.error("Error fetching HR info:", err));
-  }, [navigate]);
+  }, [navigate, API_BASE_URL]);
 
   const availableCerts = [
     'TESDA NC II', 'TESDA NC III', "Pro Driver's License", 
