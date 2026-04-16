@@ -4,7 +4,7 @@ import {
   ArrowLeft, Search, MoreVertical, LayoutDashboard,
   Calendar, CheckCircle2, Clock, MessageSquare, Settings,
   GripVertical, Sparkles, Building2, Loader2, Plus, RotateCcw,
-  X, Check, AlertTriangle, Users, Calendar as CalendarIcon, LogOut
+  X, Check, AlertTriangle, Users, Calendar as CalendarIcon, LogOut, Briefcase
 } from 'lucide-react';
 
 const COLUMNS = [
