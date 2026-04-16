@@ -242,9 +242,9 @@ const Interviews = () => {
                       <div className="pt-4 border-t border-slate-100 flex flex-col gap-2.5">
                         
                         {/* Primary Preparation CTA */}
-                        <Link to={`/hr/application-review/${inv.app_id}`} className="w-full py-2.5 bg-indigo-600 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2 text-sm hover:bg-indigo-700 shadow-sm">
-                          <FileText size={16} /> Review Candidate
-                        </Link>
+                      <Link to={`/hr/candidate/${inv.app_id}`} className="w-full py-2.5 bg-indigo-600 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2 text-sm hover:bg-indigo-700 shadow-sm">
+                        <FileText size={16} /> Review Candidate
+                      </Link>
                         
                         {/* Secondary Status CTAs */}
                         {inv.status === 'Scheduled' && (
